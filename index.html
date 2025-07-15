@@ -10,23 +10,25 @@
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
 	<p>Connect your Eternl wallet on Preprod network.</p>
 	
+	<label for="apiKey">Maestro API Key:</label>
+	<input type="text" id="apiKey" placeholder="Enter your Maestro API Key">
+	
 	<button id="connectWallet">Connect Eternl Wallet</button>
 	<p id="walletStatus"></p>
 	
-	<label for="days">Days to Rent:</label>
-	<input type="number" id="days" min="1" value="5">
+	<label for="minutes">Minutes to Rent:</label>
+	<input type="number" id="minutes" min="5" value="5">
 	
 	<button id="rentButton" disabled>Rent Book</button>
 	<p id="txStatus"></p>
 
 	<script>
-		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
+		const scriptAddress = 'your_script_address_here'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
 		const maestroApiKey = '5LIjakGH6bZmybwAsG0kUOvrTbnoe2wK'; // Get from https://gomaestro.org/
-		
 		let lucid;
 
-		async function initLucid() {
+		async function initLucid(maestroApiKey) {
 			lucid = await Lucid.new(
 				new Maestro({ 
 					network: 'Preprod',
@@ -38,7 +40,12 @@
 		}
 
 		document.getElementById('connectWallet').addEventListener('click', async () => {
-			await initLucid();
+			const apiKey = document.getElementById('apiKey').value;
+			if (!apiKey) {
+				document.getElementById('walletStatus').textContent = 'Please enter Maestro API Key.';
+				return;
+			}
+			await initLucid(apiKey);
 			if (window.cardano && window.cardano.eternl) {
 				lucid.selectWallet(await window.cardano.eternl.enable());
 				document.getElementById('walletStatus').textContent = 'Wallet connected!';
@@ -50,8 +57,8 @@
 
 		document.getElementById('rentButton').addEventListener('click', async () => {
 			try {
-				const days = parseInt(document.getElementById('days').value);
-				if (days <= 0) throw new Error('Invalid days');
+				const minutes = parseInt(document.getElementById('minutes').value);
+				if (minutes <= 0) throw new Error('Invalid minutes');
 
 				// Fetch UTxO at script address with the NFT
 				const utxos = await lucid.utxosAt(scriptAddress);
@@ -74,17 +81,17 @@
 					nft_name: Lucid.Data.Bytes()
 				});
 
-				if (days < datum.min_days || days > datum.max_days) throw new Error('Days out of range');
+				if (minutes < datum.min_days || minutes > datum.max_days) throw new Error('Minutes out of range');
 				if (datum.renter_pkh) throw new Error('Already rented');
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
-				// Calculate deadline (current time + days * ms per day)
+				// Calculate deadline (current time + minutes * ms per minute)
 				const currentSlot = await lucid.provider.getCurrentSlot();
 				const currentTime = lucid.utils.slotToUnixTime(currentSlot);
-				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
+				const deadline = currentTime + (minutes * 60000); // Use lower bound approximation
 
 				// Updated datum
 				const updatedDatum = Lucid.Data.to({
@@ -100,10 +107,10 @@
 				});
 
 				// Redeemer for Rent
-				const redeemer = Lucid.Data.to({ days: BigInt(days) }); // Rent constructor 0
+				const redeemer = Lucid.Data.to({ days: BigInt(minutes) }); // Rent constructor 0
 
 				// Payment to lender
-				const fee = datum.daily_fee * BigInt(days);
+				const fee = datum.daily_fee * BigInt(minutes);
 				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum.lender_pkh });
 
 				// Build tx
