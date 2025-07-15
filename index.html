@@ -54,19 +54,23 @@
 		
 		let lucid;
 
-		const datumSchema = Data.Object({
-			lender_pkh: Data.Bytes(),
-			daily_fee: Data.Integer(),
-			min_days: Data.Integer(),
-			max_days: Data.Integer(),
-			auto_relist: Data.Boolean(),
-			renter_pkh: Data.Nullable(Data.Bytes()),
-			deadline: Data.Nullable(Data.Integer()),
-			nft_policy: Data.Bytes(),
-			nft_name: Data.Bytes()
-		});
+		const datumSchema = Data.Enum([
+			Data.Tuple([
+				Data.Bytes(),
+				Data.Integer(),
+				Data.Integer(),
+				Data.Integer(),
+				Data.Boolean(),
+				Data.Nullable(Data.Bytes()),
+				Data.Nullable(Data.Integer()),
+				Data.Bytes(),
+				Data.Bytes()
+			])
+		]);
 
-		const redeemerSchema = Data.Object({ days: Data.Integer() });
+		const redeemerSchema = Data.Enum([
+			Data.Tuple([ Data.Integer() ])
+		]);
 
 		async function initLucid() {
 			lucid = await Lucid.new(
@@ -125,13 +129,14 @@
 			const utxos = await lucid.utxosAt(scriptAddress);
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					const datum = Data.from(utxo.datum, datumSchema);
+					const rawDatum = Data.from(utxo.datum, datumSchema);
+					const datum = rawDatum.fields; // Access fields array (alternative is always 0)
 
-					if (!datum.renter_pkh) { // Only show available (not rented)
-						const name = hexToString(datum.nft_name);
+					if (!datum[5]) { // Only show available (not rented); index 5 = renter_pkh
+						const name = hexToString(datum[8]); // index 8 = nft_name
 						const option = document.createElement('option');
 						option.value = utxo.txHash + '#' + utxo.outputIndex;
-						option.textContent = `NFT: ${name} | Fee: ${Number(datum.daily_fee) / 1000000} ADA/day | Min/Max: ${datum.min_days}-${datum.max_days} days`;
+						option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`; // indices: 1=daily_fee, 2=min_days, 3=max_days
 						rentalPicker.appendChild(option);
 					}
 				}
@@ -168,15 +173,18 @@
 				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
 				const datum = Data.to({
-					lender_pkh: lenderPkh,
-					daily_fee: BigInt(daily_fee),
-					min_days: BigInt(min_days),
-					max_days: BigInt(max_days),
-					auto_relist: auto_relist,
-					renter_pkh: null,
-					deadline: null,
-					nft_policy: nft_policy,
-					nft_name: nft_name
+					alternative: 0,
+					fields: [
+						lenderPkh,
+						BigInt(daily_fee),
+						BigInt(min_days),
+						BigInt(max_days),
+						auto_relist,
+						null,
+						null,
+						nft_policy,
+						nft_name
+					]
 				}, datumSchema);
 
 				const assets = {
@@ -209,10 +217,11 @@
 				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
 				// Read datum from UTxO
-				const datum = Data.from(escrowUtxo.datum, datumSchema);
+				const rawDatum = Data.from(escrowUtxo.datum, datumSchema);
+				const datum = rawDatum.fields; // Access fields array
 
-				if (days < datum.min_days || days > datum.max_days) throw new Error('Days out of range');
-				if (datum.renter_pkh) throw new Error('Already rented');
+				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range'); // indices: 2=min_days, 3=max_days
+				if (datum[5]) throw new Error('Already rented'); // index 5 = renter_pkh
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
@@ -229,23 +238,29 @@
 
 				// Updated datum
 				const updatedDatum = Data.to({
-					lender_pkh: datum.lender_pkh,
-					daily_fee: datum.daily_fee,
-					min_days: datum.min_days,
-					max_days: datum.max_days,
-					auto_relist: datum.auto_relist,
-					renter_pkh: renterPkh,
-					deadline: BigInt(deadline),
-					nft_policy: datum.nft_policy,
-					nft_name: datum.nft_name
+					alternative: 0,
+					fields: [
+						datum[0], // lender_pkh
+						datum[1], // daily_fee
+						datum[2], // min_days
+						datum[3], // max_days
+						datum[4], // auto_relist
+						renterPkh,
+						BigInt(deadline),
+						datum[7], // nft_policy
+						datum[8]  // nft_name
+					]
 				}, datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to({ days: BigInt(days) }, redeemerSchema);
+				const redeemer = Data.to({
+					alternative: 0,
+					fields: [ BigInt(days) ]
+				}, redeemerSchema);
 
 				// Payment to lender
-				const fee = datum.daily_fee * BigInt(days);
-				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum.lender_pkh });
+				const fee = datum[1] * BigInt(days); // index 1 = daily_fee
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] }); // index 0 = lender_pkh
 
 				// Build tx
 				const tx = await lucid.newTx()
