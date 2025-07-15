@@ -66,9 +66,7 @@
 			Data.Bytes()
 		]);
 
-		const redeemerSchema = Data.Object({
-			days: Data.Integer()
-		});
+		const redeemerSchema = Data.Constr(Data.Array(Data.Integer()));
 
 		async function initLucid() {
 			lucid = await Lucid.new(
@@ -243,7 +241,7 @@
 				], datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to({ days: BigInt(days) }, redeemerSchema);
+				const redeemer = Data.to({ constructor: BigInt(0), fields: [BigInt(days)] }, redeemerSchema);
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
