@@ -111,16 +111,21 @@
 			const utxos = await lucid.utxosAt(scriptAddress);
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					const rawDatum = Data.from(utxo.datum);
-					const datum = rawDatum.fields;
-
-					const renter_pkh = datum[5];
-					if (renter_pkh.constructor === 0) { // Only show available (not rented)
-						const name = hexToString(datum[8]);
-						const option = document.createElement('option');
-						option.value = utxo.txHash + '#' + utxo.outputIndex;
-						option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
-						rentalPicker.appendChild(option);
+					if (!utxo.datum) continue; // Skip UTxOs without inline datum
+					try {
+						const rawDatum = Data.from(utxo.datum);
+						const datum = rawDatum.fields;
+						const renter_pkh = datum[5];
+						if (renter_pkh.constructor === 0) { // Only show available (not rented)
+							const name = hexToString(datum[8]);
+							const option = document.createElement('option');
+							option.value = utxo.txHash + '#' + utxo.outputIndex;
+							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
+							rentalPicker.appendChild(option);
+						}
+					} catch (e) {
+						console.error('Error parsing datum:', e);
+						continue; // Skip malformed datums
 					}
 				}
 			}
@@ -198,6 +203,8 @@
 				const [txHash, outputIndex] = selectedRental.split('#');
 				const escrowUtxo = (await lucid.utxosAt(scriptAddress)).find(utxo => utxo.txHash === txHash && utxo.outputIndex === parseInt(outputIndex));
 				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
+
+				if (!escrowUtxo.datum) throw new Error('Escrow UTxO has no inline datum');
 
 				// Read datum from UTxO
 				const rawDatum = Data.from(escrowUtxo.datum);
