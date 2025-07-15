@@ -217,8 +217,9 @@
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
 				// Calculate deadline (current time + days * ms per day)
-				const currentSlot = await lucid.provider.getCurrentSlot();
-				const currentTime = lucid.utils.slotToUnixTime(currentSlot);
+				const latestBlock = await lucid.provider.request("/blocks/latest");
+				const currentTime = latestBlock.time * 1000;
+
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
 				// Updated datum
