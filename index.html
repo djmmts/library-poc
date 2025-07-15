@@ -9,120 +9,120 @@
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
 	<p>Connect your Eternl wallet on Preprod network.</p>
 	
-<button id="connectWallet">Connect Eternl Wallet</button>
-<p id="walletStatus"></p>
-
-<label for="minutes">Minutes to Rent:</label>
-<input type="number" id="minutes" min="5" value="5">
-
-<button id="rentButton" disabled>Rent Book</button>
-<p id="txStatus"></p>
-
-<script type="module">
-	import { Lucid, Maestro } from "https://unpkg.com/lucid-cardano@0.10.7/web-bundle/index.es.js";
-
-	const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
-	const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
-	const maestroApiKey = '5LIjakGH6bZmybwAsG0kUOvrTbnoe2wK'; // Hardcoded for POC - replace with your actual key
+	<button id="connectWallet">Connect Eternl Wallet</button>
+	<p id="walletStatus"></p>
 	
-	let lucid;
+	<label for="minutes">Minutes to Rent:</label>
+	<input type="number" id="minutes" min="5" value="5">
+	
+	<button id="rentButton" disabled>Rent Book</button>
+	<p id="txStatus"></p>
 
-	async function initLucid() {
-		lucid = await Lucid.new(
-			new Maestro({ 
-				network: 'Preprod',
-				apiKey: maestroApiKey,
-				turboSubmit: false
-			}),
-			'Preprod'
-		);
-	}
+	<script type="module">
+		import { Lucid, Maestro } from "https://cdn.jsdelivr.net/npm/lucid-cardano@0.10.7/web-bundle/index.es.js";
 
-	document.getElementById('connectWallet').addEventListener('click', async () => {
-		await initLucid();
-		if (window.cardano && window.cardano.eternl) {
-			lucid.selectWallet(await window.cardano.eternl.enable());
-			document.getElementById('walletStatus').textContent = 'Wallet connected!';
-			document.getElementById('rentButton').disabled = false;
-		} else {
-			document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
+		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
+		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
+		const maestroApiKey = '5LIjakGH6bZmybwAsG0kUOvrTbnoe2wK'; // Hardcoded for POC - replace with your actual key
+		
+		let lucid;
+
+		async function initLucid() {
+			lucid = await Lucid.new(
+				new Maestro({ 
+					network: 'Preprod',
+					apiKey: maestroApiKey,
+					turboSubmit: false
+				}),
+				'Preprod'
+			);
 		}
-	});
 
-	document.getElementById('rentButton').addEventListener('click', async () => {
-		try {
-			const minutes = parseInt(document.getElementById('minutes').value);
-			if (minutes <= 0) throw new Error('Invalid minutes');
+		document.getElementById('connectWallet').addEventListener('click', async () => {
+			await initLucid();
+			if (window.cardano && window.cardano.eternl) {
+				lucid.selectWallet(await window.cardano.eternl.enable());
+				document.getElementById('walletStatus').textContent = 'Wallet connected!';
+				document.getElementById('rentButton').disabled = false;
+			} else {
+				document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
+			}
+		});
 
-			// Fetch UTxO at script address with the NFT
-			const utxos = await lucid.utxosAt(scriptAddress);
-			const escrowUtxo = utxos.find(utxo => {
-				// Assume first UTxO with NFT; in production, filter by NFT
-				return Object.keys(utxo.assets).some(asset => asset !== 'lovelace'); // Simple NFT check
-			});
-			if (!escrowUtxo) throw new Error('No escrow UTxO found');
+		document.getElementById('rentButton').addEventListener('click', async () => {
+			try {
+				const minutes = parseInt(document.getElementById('minutes').value);
+				if (minutes <= 0) throw new Error('Invalid minutes');
 
-			// Read datum from UTxO
-			const datum = Lucid.Data.from(escrowUtxo.datum, { // Schema from plutus.json
-				lender_pkh: Lucid.Data.Bytes(),
-				daily_fee: Lucid.Data.Integer(),
-				min_days: Lucid.Data.Integer(),
-				max_days: Lucid.Data.Integer(),
-				auto_relist: Lucid.Data.Boolean(),
-				renter_pkh: Lucid.Data.Optional(Lucid.Data.Bytes()),
-				deadline: Lucid.Data.Optional(Lucid.Data.Integer()),
-				nft_policy: Lucid.Data.Bytes(),
-				nft_name: Lucid.Data.Bytes()
-			});
+				// Fetch UTxO at script address with the NFT
+				const utxos = await lucid.utxosAt(scriptAddress);
+				const escrowUtxo = utxos.find(utxo => {
+					// Assume first UTxO with NFT; in production, filter by NFT
+					return Object.keys(utxo.assets).some(asset => asset !== 'lovelace'); // Simple NFT check
+				});
+				if (!escrowUtxo) throw new Error('No escrow UTxO found');
 
-			if (minutes < datum.min_days || minutes > datum.max_days) throw new Error('Minutes out of range');
-			if (datum.renter_pkh) throw new Error('Already rented');
+				// Read datum from UTxO
+				const datum = Lucid.Data.from(escrowUtxo.datum, { // Schema from plutus.json
+					lender_pkh: Lucid.Data.Bytes(),
+					daily_fee: Lucid.Data.Integer(),
+					min_days: Lucid.Data.Integer(),
+					max_days: Lucid.Data.Integer(),
+					auto_relist: Lucid.Data.Boolean(),
+					renter_pkh: Lucid.Data.Optional(Lucid.Data.Bytes()),
+					deadline: Lucid.Data.Optional(Lucid.Data.Integer()),
+					nft_policy: Lucid.Data.Bytes(),
+					nft_name: Lucid.Data.Bytes()
+				});
 
-			// Get renter PKH
-			const renterAddress = await lucid.wallet.address();
-			const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
+				if (minutes < datum.min_days || minutes > datum.max_days) throw new Error('Minutes out of range');
+				if (datum.renter_pkh) throw new Error('Already rented');
 
-			// Calculate deadline (current time + minutes * ms per minute)
-			const currentSlot = await lucid.provider.getCurrentSlot();
-			const currentTime = lucid.utils.slotToUnixTime(currentSlot);
-			const deadline = currentTime + (minutes * 60000); // Use lower bound approximation
+				// Get renter PKH
+				const renterAddress = await lucid.wallet.address();
+				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
-			// Updated datum
-			const updatedDatum = Lucid.Data.to({
-				lender_pkh: datum.lender_pkh,
-				daily_fee: datum.daily_fee,
-				min_days: datum.min_days,
-				max_days: datum.max_days,
-				auto_relist: datum.auto_relist,
-				renter_pkh: renterPkh,
-				deadline: BigInt(deadline),
-				nft_policy: datum.nft_policy,
-				nft_name: datum.nft_name
-			});
+				// Calculate deadline (current time + minutes * ms per minute)
+				const currentSlot = await lucid.provider.getCurrentSlot();
+				const currentTime = lucid.utils.slotToUnixTime(currentSlot);
+				const deadline = currentTime + (minutes * 60000); // Use lower bound approximation
 
-			// Redeemer for Rent
-			const redeemer = Lucid.Data.to({ days: BigInt(minutes) }); // Rent constructor 0
+				// Updated datum
+				const updatedDatum = Lucid.Data.to({
+					lender_pkh: datum.lender_pkh,
+					daily_fee: datum.daily_fee,
+					min_days: datum.min_days,
+					max_days: datum.max_days,
+					auto_relist: datum.auto_relist,
+					renter_pkh: renterPkh,
+					deadline: BigInt(deadline),
+					nft_policy: datum.nft_policy,
+					nft_name: datum.nft_name
+				});
 
-			// Payment to lender
-			const fee = datum.daily_fee * BigInt(minutes);
-			const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum.lender_pkh });
+				// Redeemer for Rent
+				const redeemer = Lucid.Data.to({ days: BigInt(minutes) }); // Rent constructor 0
 
-			// Build tx
-			const tx = await lucid.newTx()
-				.collectFrom([escrowUtxo], redeemer)
-				.attachSpendingValidator({ type: 'PlutusV3', script: scriptHash })
-				.payToAddress(lenderAddress, { lovelace: fee })
-				.payToContract(scriptAddress, { inline: updatedDatum }, escrowUtxo.assets) // Preserve NFT + ADA
-				.complete();
+				// Payment to lender
+				const fee = datum.daily_fee * BigInt(minutes);
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum.lender_pkh });
 
-			const signedTx = await tx.sign().complete();
-			const txHash = await signedTx.submit();
+				// Build tx
+				const tx = await lucid.newTx()
+					.collectFrom([escrowUtxo], redeemer)
+					.attachSpendingValidator({ type: 'PlutusV3', script: scriptHash })
+					.payToAddress(lenderAddress, { lovelace: fee })
+					.payToContract(scriptAddress, { inline: updatedDatum }, escrowUtxo.assets) // Preserve NFT + ADA
+					.complete();
 
-			document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHash}`;
-		} catch (error) {
-			document.getElementById('txStatus').textContent = `Error: ${error.message}`;
-		}
-	});
-</script></body>
+				const signedTx = await tx.sign().complete();
+				const txHash = await signedTx.submit();
+
+				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHash}`;
+			} catch (error) {
+				document.getElementById('txStatus').textContent = `Error: ${error.message}`;
+			}
+		});
+	</script>
+</body>
 </html>
-
