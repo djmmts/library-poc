@@ -66,6 +66,10 @@
 			Data.Bytes()
 		]);
 
+		const redeemerSchema = Data.Object({
+			days: Data.Integer()
+		});
+
 		async function initLucid() {
 			lucid = await Lucid.new(
 				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
@@ -239,7 +243,7 @@
 				], datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to({ constructor: 0, fields: [BigInt(days)] });
+				const redeemer = Data.to({ days: BigInt(days) }, redeemerSchema);
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
