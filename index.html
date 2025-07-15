@@ -217,7 +217,10 @@
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
 				// Calculate deadline (current time + days * ms per day)
-				const latestBlock = await lucid.provider.request("/blocks/latest");
+				const latestBlockResponse = await fetch('https://cardano-preprod.blockfrost.io/api/v0/blocks/latest', {
+					headers: { 'project_id': blockfrostKey }
+				});
+				const latestBlock = await latestBlockResponse.json();
 				const currentTime = latestBlock.time * 1000;
 
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
