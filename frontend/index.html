@@ -20,15 +20,19 @@
 	<p id="txStatus"></p>
 
 	<script>
-		const scriptAddress = 'your_script_address_here'; // Replace with aiken blueprint address renting_escrow.nft_rental output
+		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
-		const blockfrostKey = 'your_blockfrost_preprod_key_here'; // Get from blockfrost.io
+		const maestroApiKey = '5LIjakGH6bZmybwAsG0kUOvrTbnoe2wK'; // Get from https://gomaestro.org/
 		
 		let lucid;
 
 		async function initLucid() {
 			lucid = await Lucid.new(
-				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
+				new Maestro({ 
+					network: 'Preprod',
+					apiKey: maestroApiKey,
+					turboSubmit: false
+				}),
 				'Preprod'
 			);
 		}
