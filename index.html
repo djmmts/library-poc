@@ -54,6 +54,18 @@
 		
 		let lucid;
 
+		const datumSchema = {
+			lender_pkh: Data.Bytes(),
+			daily_fee: Data.Integer(),
+			min_days: Data.Integer(),
+			max_days: Data.Integer(),
+			auto_relist: Data.Boolean(),
+			renter_pkh: Data.Nullable(Data.Bytes()),
+			deadline: Data.Nullable(Data.Integer()),
+			nft_policy: Data.Bytes(),
+			nft_name: Data.Bytes()
+		};
+
 		async function initLucid() {
 			lucid = await Lucid.new(
 				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
@@ -111,23 +123,13 @@
 			const utxos = await lucid.utxosAt(scriptAddress);
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					const datum = Data.from(utxo.datum, {
-						lender_pkh: Data.Bytes(),
-						daily_fee: Data.Integer(),
-						min_days: Data.Integer(),
-						max_days: Data.Integer(),
-						auto_relist: Data.Boolean(),
-						renter_pkh: Data.Nullable(Data.Bytes()),
-						deadline: Data.Nullable(Data.Integer()),
-						nft_policy: Data.Bytes(),
-						nft_name: Data.Bytes()
-					});
+					const datum = Data.from(utxo.datum, datumSchema);
 
 					if (!datum.renter_pkh) { // Only show available (not rented)
 						const name = hexToString(datum.nft_name);
 						const option = document.createElement('option');
 						option.value = utxo.txHash + '#' + utxo.outputIndex;
-						option.textContent = `NFT: ${name} | Fee: ${datum.daily_fee} ADA/day | Min/Max: ${datum.min_days}-${datum.max_days} days`;
+						option.textContent = `NFT: ${name} | Fee: ${Number(datum.daily_fee) / 1000000} ADA/day | Min/Max: ${datum.min_days}-${datum.max_days} days`;
 						rentalPicker.appendChild(option);
 					}
 				}
@@ -163,7 +165,7 @@
 				const lenderAddress = await lucid.wallet.address();
 				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
-				const datum = Data.to({
+				const datumObject = {
 					lender_pkh: lenderPkh,
 					daily_fee: BigInt(daily_fee),
 					min_days: BigInt(min_days),
@@ -173,7 +175,9 @@
 					deadline: null,
 					nft_policy: nft_policy,
 					nft_name: nft_name
-				});
+				};
+
+				const datum = Data.to(datumObject, datumSchema);
 
 				const assets = {
 					[`${nft_policy}${nft_name}`]: 1n,
@@ -205,17 +209,7 @@
 				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
 				// Read datum from UTxO
-				const datum = Data.from(escrowUtxo.datum, {
-					lender_pkh: Data.Bytes(),
-					daily_fee: Data.Integer(),
-					min_days: Data.Integer(),
-					max_days: Data.Integer(),
-					auto_relist: Data.Boolean(),
-					renter_pkh: Data.Nullable(Data.Bytes()),
-					deadline: Data.Nullable(Data.Integer()),
-					nft_policy: Data.Bytes(),
-					nft_name: Data.Bytes()
-				});
+				const datum = Data.from(escrowUtxo.datum, datumSchema);
 
 				if (days < datum.min_days || days > datum.max_days) throw new Error('Days out of range');
 				if (datum.renter_pkh) throw new Error('Already rented');
@@ -230,7 +224,7 @@
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
 				// Updated datum
-				const updatedDatum = Data.to({
+				const updatedDatumObject = {
 					lender_pkh: datum.lender_pkh,
 					daily_fee: datum.daily_fee,
 					min_days: datum.min_days,
@@ -240,10 +234,12 @@
 					deadline: BigInt(deadline),
 					nft_policy: datum.nft_policy,
 					nft_name: datum.nft_name
-				});
+				};
 
-				// Redeemer for Rent
-				const redeemer = Data.to({ days: BigInt(days) }); // Rent constructor 0
+				const updatedDatum = Data.to(updatedDatumObject, datumSchema);
+
+				// Redeemer for Rent (assuming constructor 0 with days field)
+				const redeemer = Data.to(new Data.Constr(0, [Data.integer(BigInt(days))]));
 
 				// Payment to lender
 				const fee = datum.daily_fee * BigInt(days);
