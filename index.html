@@ -54,6 +54,16 @@
 		
 		let lucid;
 
+		const MaybeBytes = Data.Enum([
+			Data.Tuple([]), // None
+			Data.Tuple([Data.Bytes()]) // Some
+		]);
+
+		const MaybeInteger = Data.Enum([
+			Data.Tuple([]), // None
+			Data.Tuple([Data.Integer()]) // Some
+		]);
+
 		const datumSchema = Data.Enum([
 			Data.Tuple([
 				Data.Bytes(),
@@ -61,8 +71,8 @@
 				Data.Integer(),
 				Data.Integer(),
 				Data.Boolean(),
-				Data.Nullable(Data.Bytes()),
-				Data.Nullable(Data.Integer()),
+				MaybeBytes,
+				MaybeInteger,
 				Data.Bytes(),
 				Data.Bytes()
 			])
@@ -132,7 +142,8 @@
 					const rawDatum = Data.from(utxo.datum, datumSchema);
 					const datum = rawDatum.fields; // Access fields array (alternative is always 0)
 
-					if (!datum[5]) { // Only show available (not rented); index 5 = renter_pkh
+					const renter = datum[5]; // MaybeBytes
+					if (renter.alternative === 0) { // Only show available (not rented)
 						const name = hexToString(datum[8]); // index 8 = nft_name
 						const option = document.createElement('option');
 						option.value = utxo.txHash + '#' + utxo.outputIndex;
@@ -180,8 +191,8 @@
 						BigInt(min_days),
 						BigInt(max_days),
 						auto_relist,
-						null,
-						null,
+						{ alternative: 0, fields: [] }, // null for renter_pkh
+						{ alternative: 0, fields: [] }, // null for deadline
 						nft_policy,
 						nft_name
 					]
@@ -221,7 +232,7 @@
 				const datum = rawDatum.fields; // Access fields array
 
 				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range'); // indices: 2=min_days, 3=max_days
-				if (datum[5]) throw new Error('Already rented'); // index 5 = renter_pkh
+				if (datum[5].alternative !== 0) throw new Error('Already rented'); // index 5 = renter_pkh (alternative 0 = null)
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
@@ -245,8 +256,8 @@
 						datum[2], // min_days
 						datum[3], // max_days
 						datum[4], // auto_relist
-						renterPkh,
-						BigInt(deadline),
+						{ alternative: 1, fields: [renterPkh] },
+						{ alternative: 1, fields: [BigInt(deadline)] },
 						datum[7], // nft_policy
 						datum[8]  // nft_name
 					]
