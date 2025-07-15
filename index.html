@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Cardano NFT Book Rental DApp</title>
-	<script src="https://cdn.jsdelivr.net/npm/lucid-cardano@0.10.7/web-bundle/index.min.js"></script>
+	
 </head>
 <body>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
@@ -20,6 +20,7 @@
 	<p id="txStatus"></p>
 
 	<script>
+		import { Lucid, Blockfrost } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
 		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // Hardcoded for POC - replace with your actual key
