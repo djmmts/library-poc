@@ -4,7 +4,6 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Cardano NFT Book Rental DApp</title>
-	<script src="https://unpkg.com/@meshsdk/core@latest/dist/index.js"></script>
 </head>
 <body>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
@@ -47,32 +46,31 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		// Import Mesh components
-		const { 
+		// Import Mesh SDK from ESM CDN
+		import { 
 			BrowserWallet, 
 			Transaction, 
-			ForgeScript,
-			resolveDataHash,
-			resolvePlutusScriptAddress,
+			KoiosProvider,
 			resolvePaymentKeyHash,
-			KoiosProvider
-		} = window.MeshJS;
+			resolveSlotNo,
+			mConStr0,
+			mConStr1,
+			stringToHex,
+			deserializeAddress,
+			serializePlutusScript
+		} from 'https://cdn.jsdelivr.net/npm/@meshsdk/core@1.5.18/+esm';
 
 		// Script configuration
-		const scriptCBOR = '59089359089301010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cdc3a400530080024888966002600460106ea800e2653001300d00198069807000cdc3a400091119912cc004c00c00626464b300130150028024590121bad3013001300f37540151598009804000c4c8c966002602a0050048b2024375a6026002601e6ea802a2b30013370e9002000c566002601e6ea802a005164041164034806900d0acc004c004c030dd50014660026020601a6ea800a4602260246024602460246024602460240032301130120019180898091809180918091809180918091809000cdd2a4000911114c004c966002601860246ea800626eb4c058c04cdd5000c59011180a98091baa301530123754600860246ea802a64b30013007301237540031375c602c60266ea80062c8088c96600200314c0103d87a8000898011980a980b000a5eb810141bac3002301237540153259800980398091baa0018980b18099baa0018b202232330010013758602c60266ea802c896600200314c103d87a80008992cc004cdd7980c180a9baa00100b898021980b800a5eb8226600600660320048098c05c0050154888c966002601e602a6ea80062900044dd6980c980b1baa001405064b3001300f3015375400314c0103d87a8000899198008009bab301a3017375400444b30010018a6103d87a8000899192cc004cdc8803000c56600266e3c0180062601266038603400497ae08a60103d87a80004061133004004301e00340606eb8c060004c06c005019202832330010010042259800800c5300103d87a8000899192cc004cdc8803000c56600266e3c0180062601066036603200497ae08a60103d87a8000405d133004004301d003405c6eb8c05c004c0680050182444464b3001301098009bab3008301737546010602e6ea800e6eb8c024c05cdd50054dd71803980b9baa00a4009198009180d980e180e000c8c06cc070c070c07000644646600200200644b30010018a508acc004c00cc0780062946266004004603e00280c901c48c06cc070c070c070c070006460366038603860386038603860380032301b301c301c301c301c301c001980b1baa0129ba548011222222223259800980a001c4c966002b3001301530203754600a60426ea80522942294501f456600266e24dd6980518109baa0140018acc004cdc48009bad30093021375402915980099b88480000062b30013002337046eb4c048c084dd500a000c4cc020dd6180518109baa01925980099baf30253022375400201915980099baf300b30223754002600866048602266048604a60446ea8054cc090c04cc088dd500a99812180598111baa01533024300a3022375402a660493001301b30213754601060446ea805698103d87a8000a60103d87980004080660486022660486ea403d2f5c0660486022660486ea0cdc000819b8200248203c2c9492f5c066048602860446ea8054cc090c048c088dd500aa5eb812f5c11301b98009bab301330223754003375c602860446ea80566eb8c048c088dd500aa01a8a50408114a08102294101f4528203e8a50407d14a080fa294101f1bad302330203754037159800980c801c4cc896600266e3cc966002602e60446ea800626eb8c098c08cdd5000c59021180318111baa01500f8acc004cdc4192cc004c070c088dd5000c4dd6981318119baa0018b2042302530223754602660446ea8c050c088dd500d000c56600266e2120000028acc004c00ccdc11bad30133022375402a0051330093758601660446ea806896600266ebcc098c08cdd5000806c56600266ebcc030c08cdd5000980299812980919812981318119baa0163302530143023375402c6604a601860466ea8058cc094c02cc08cdd500b19812cc004c070c088dd5180498119baa016a60103d87a8000a60103d879800040846604a600e60466ea8058cc094c048cc094dd419b8000233704006904078592925eb80cc094c054c08cdd500b19812980998119baa0164bd7025eb822603930013756602860466ea80066eb8c054c08cdd500b4dd7180998119baa016403914a0810a2941021452820408a50408114a0810229410201bad30233020375403664b30013015302037540031375a604860426ea80062c80f8c014c080dd5009c56600266e3c034dd7181198101baa0138acc005660026032603e6ea8c010c080dd5009c528c4cdc4192cc004c054c080dd5000c4dd6981218109baa0018b203e30053020375402601c80f22b300159800980c980f9baa30043020375402719800980c980f9baa3006302037540274a14a280f2294501e45660026032603e6ea8c018c080dd5009c4cc01cdd6180498101baa01825980099baf30243021375400201715980099baf300a30213754002600666046602066046604860426ea8050cc08cc048c084dd500a19811980518109baa01433023300930213754028660473001301a30203754600e60426ea8052980103d87a8000a60103d8798000407c6604698103d87a8000330234c103d87a80003302330133021375402866046602260426ea80512f5c097ae08980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e8a50407d1330073758601260406ea806096600264b300130163021375400313371e6eb8c094c088dd50009bae30253022375402b14a08100c090c084dd5181218109baa0018980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e407914a080f2294101e4528203c407880f08cdc480099198008009bac300a3021375403244b30010018a4001132332259800980c98121baa0028acc004cdc79bae3028302537540046eb8c0a0c094dd500c44cdc0000cc004dd5980b18129baa003a4500a4410040411001408d1001408c604c60466ea8c098c08cdd50009980180198138011812800a046459015180c980b1baa30073016375400445900b18061baa00818049baa0038b200e180400098019baa0088a4d13656400401';
+		const scriptCBOR = '59089359089301010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cdc3a400530080024888966002600460106ea800e2653001300d00198069807000cdc3a400091119912cc004c00c00626464b300130150028024590121bad3013001300f37540151598009804000c4c8c966002602a0050048b2024375a6026002601e6ea802a2b30013370e9002000c566002601e6ea802a005164041164034806900d0acc004c004c030dd50014660026020601a6ea800a4602260246024602460246024602460240032301130120019180898091809180918091809180918091809000cdd2a4000911114c004c966002601860246ea800626eb4c058c04cdd5000c59011180a98091baa301530123754600860246ea802a64b30013007301237540031375c602c60266ea80062c8088c96600200314c0103d87a8000898011980a980b000a5eb810141bac3002301237540153259800980398091baa0018980b18099baa0018b202232330010013758602c60266ea802c896600200314c103d87a80008992cc004cdd7980c180a9baa00100b898021980b800a5eb8226600600660320048098c05c0050154888c966002601e602a6ea80062900044dd6980c980b1baa001405064b3001300f3015375400314c0103d87a8000899198008009bab301a3017375400444b30010018a6103d87a8000899192cc004cdc8803000c56600266e3c0180062601266038603400497ae08a60103d87a80004061133004004301e00340606eb8c060004c06c005019202832330010010042259800800c5300103d87a8000899192cc004cdc8803000c56600266e3c0180062601066036603200497ae08a60103d87a8000405d133004004301d003405c6eb8c05c004c0680050182444464b3001301098009bab3008301737546010602e6ea800e6eb8c024c05cdd50054dd71803980b9baa00a4009198009180d980e180e000c8c06cc070c070c07000644646600200200644b30010018a508acc004c00cc0780062946266004004603e00280c901c48c06cc070c070c070c070006460366038603860386038603860380032301b301c301c301c301c301c301c001980b1baa0129ba548011222222223259800980a001c4c966002b3001301530203754600a60426ea80522942294501f456600266e24dd6980518109baa0140018acc004cdc48009bad30093021375402915980099b88480000062b30013002337046eb4c048c084dd500a000c4cc020dd6180518109baa01925980099baf30253022375400201915980099baf300b30223754002600866048602266048604a60446ea8054cc090c04cc088dd500a99812180598111baa01533024300a3022375402a660493001301b30213754601060446ea805698103d87a8000a60103d87980004080660486022660486ea403d2f5c0660486022660486ea0cdc000819b8200248203c2c9492f5c066048602860446ea8054cc090c048c088dd500aa5eb812f5c11301b98009bab301330223754003375c602860446ea80566eb8c048c088dd500aa01a8a50408114a08102294101f4528203e8a50407d14a080fa294101f1bad302330203754037159800980c801c4cc896600266e3cc966002602e60446ea800626eb8c098c08cdd5000c59021180318111baa01500f8acc004cdc4192cc004c070c088dd5000c4dd6981318119baa0018b2042302530223754602660446ea8c050c088dd500d000c56600266e2120000028acc004c00ccdc11bad30133022375402a0051330093758601660446ea806896600266ebcc098c08cdd5000806c56600266ebcc030c08cdd5000980299812980919812981318119baa0163302530143023375402c6604a601860466ea8058cc094c02cc08cdd500b19812cc004c070c088dd5180498119baa016a60103d87a8000a60103d879800040846604a600e60466ea8058cc094c048cc094dd419b8000233704006904078592925eb80cc094c054c08cdd500b19812980998119baa0164bd7025eb822603930013756602860466ea80066eb8c054c08cdd500b4dd7180998119baa016403914a0810a2941021452820408a50408114a0810229410201bad30233020375403664b30013015302037540031375a604860426ea80062c80f8c014c080dd5009c56600266e3c034dd7181198101baa0138acc005660026032603e6ea8c010c080dd5009c528c4cdc4192cc004c054c080dd5000c4dd6981218109baa0018b203e30053020375402601c80f22b300159800980c980f9baa30043020375402719800980c980f9baa3006302037540274a14a280f2294501e45660026032603e6ea8c018c080dd5009c4cc01cdd6180498101baa01825980099baf30243021375400201715980099baf300a30213754002600666046602066046604860426ea8050cc08cc048c084dd500a19811980518109baa01433023300930213754028660473001301a30203754600e60426ea8052980103d87a8000a60103d8798000407c6604698103d87a8000330234c103d87a80003302330133021375402866046602260426ea80512f5c097ae08980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e8a50407d1330073758601260406ea806096600264b300130163021375400313371e6eb8c094c088dd50009bae30253022375402b14a08100c090c084dd5181218109baa0018980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e407914a080f2294101e4528203c407880f08cdc480099198008009bac300a3021375403244b30010018a4001132332259800980c98121baa0028acc004cdc79bae3028302537540046eb8c0a0c094dd500c44cdc0000cc004dd5980b18129baa003a4500a4410040411001408d1001408c604c60466ea8c098c08cdd50009980180198138011812800a046459015180c980b1baa30073016375400445900b18061baa00818049baa0038b200e180400098019baa0088a4d13656400401';
 		
 		let wallet;
 		let provider;
 		let walletAddress;
-		let scriptAddress;
+		const scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
 
 		// Initialize provider
 		async function initProvider() {
 			provider = new KoiosProvider('preprod');
-			
-			// Use the same script address we already have
-			// This was derived from the script CBOR and won't change
-			scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
 			console.log('Script address:', scriptAddress);
 			console.log('Script hash: b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36');
 		}
@@ -86,17 +84,8 @@
 				}
 				return str;
 			} catch (e) {
-				return hex; // Fallback to hex if not decodable
+				return hex;
 			}
-		}
-
-		// Convert hex to bytes
-		function hexToBytes(hex) {
-			const bytes = [];
-			for (let i = 0; i < hex.length; i += 2) {
-				bytes.push(parseInt(hex.substr(i, 2), 16));
-			}
-			return new Uint8Array(bytes);
 		}
 
 		// Populate NFT picker from wallet assets
@@ -104,20 +93,31 @@
 			const nftPicker = document.getElementById('nft_picker');
 			nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
 			
-			const assets = await wallet.getAssets();
-			
-			assets.forEach(asset => {
-				if (asset.quantity === "1") { // NFTs typically have quantity 1
-					const policyId = asset.unit.slice(0, 56);
-					const assetName = asset.unit.slice(56);
+			try {
+				const utxos = await wallet.getUtxos();
+				const assets = {};
+				
+				utxos.forEach(utxo => {
+					utxo.output.amount.forEach(asset => {
+						if (asset.unit !== 'lovelace' && BigInt(asset.quantity) === 1n) {
+							assets[asset.unit] = true;
+						}
+					});
+				});
+				
+				Object.keys(assets).forEach(unit => {
+					const policyId = unit.slice(0, 56);
+					const assetName = unit.slice(56);
 					const name = hexToString(assetName);
 					
 					const option = document.createElement('option');
 					option.value = `${policyId}|${assetName}`;
 					option.textContent = `${name} (${policyId.slice(0, 10)}...)`;
 					nftPicker.appendChild(option);
-				}
-			});
+				});
+			} catch (e) {
+				console.error('Error populating NFTs:', e);
+			}
 		}
 
 		// Populate rental picker from script UTxOs
@@ -134,10 +134,6 @@
 					const hasNft = utxo.output.amount.some(asset => asset.unit !== 'lovelace');
 					if (hasNft && utxo.output.plutusData) {
 						try {
-							// Parse the datum
-							const datumCbor = utxo.output.plutusData;
-							// For now, we'll use a simple check - in production, use proper CBOR parsing
-							
 							// Extract NFT info from UTXO
 							const nftAsset = utxo.output.amount.find(asset => asset.unit !== 'lovelace');
 							const nftName = hexToString(nftAsset.unit.slice(56));
@@ -145,10 +141,10 @@
 							const option = document.createElement('option');
 							option.value = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
 							option.textContent = `NFT: ${nftName} | Available for rent`;
-							option.dataset.datum = datumCbor;
+							option.dataset.utxo = JSON.stringify(utxo);
 							rentalPicker.appendChild(option);
 						} catch (e) {
-							console.error('Error parsing datum:', e);
+							console.error('Error parsing rental:', e);
 						}
 					}
 				}
@@ -200,45 +196,40 @@
 				const [nft_policy, nft_name] = selectedNft.split('|');
 				const lenderPkh = resolvePaymentKeyHash(walletAddress);
 
-				// Build datum following Aiken structure
-				const datum = {
-					constructor: 0,
-					fields: [
-						lenderPkh, // lender_pkh
-						daily_fee, // daily_fee
-						min_days, // min_days
-						max_days, // max_days
-						{ constructor: auto_relist ? 1 : 0, fields: [] }, // auto_relist
-						{ constructor: 1, fields: [] }, // renter_pkh: None
-						{ constructor: 1, fields: [] }, // deadline: None
-						nft_policy, // nft_policy
-						nft_name // nft_name
-					]
-				};
+				// Build datum following Aiken structure using Mesh helpers
+				const datum = mConStr0([
+					lenderPkh, // lender_pkh
+					daily_fee, // daily_fee
+					min_days, // min_days
+					max_days, // max_days
+					auto_relist ? mConStr1([]) : mConStr0([]), // auto_relist
+					mConStr1([]), // renter_pkh: None
+					mConStr1([]), // deadline: None
+					nft_policy, // nft_policy
+					nft_name // nft_name
+				]);
 
 				// Build transaction
-				const tx = new Transaction({ initiator: wallet });
-				
-				// Send NFT to script address with datum
-				tx.sendAssets(
-					{
-						address: scriptAddress,
-						datum: { value: datum, inline: true }
-					},
-					[
+				const tx = new Transaction({ initiator: wallet })
+					.sendAssets(
 						{
-							unit: nft_policy + nft_name,
-							quantity: '1'
-						}
-					]
-				);
+							address: scriptAddress,
+							datum: { value: datum, inline: true }
+						},
+						[
+							{
+								unit: nft_policy + nft_name,
+								quantity: '1'
+							}
+						]
+					);
 
 				const unsignedTx = await tx.build();
 				const signedTx = await wallet.signTx(unsignedTx);
 				const txHash = await wallet.submitTx(signedTx);
 
 				document.getElementById('listStatus').textContent = `Rental listed! Tx: ${txHash}`;
-				setTimeout(populateRentalPicker, 3000); // Refresh after a delay
+				setTimeout(populateRentalPicker, 3000);
 			} catch (error) {
 				console.error('List error:', error);
 				document.getElementById('listStatus').textContent = `Error: ${error.message}`;
@@ -257,79 +248,71 @@
 					throw new Error('Invalid rental selection or days');
 				}
 
-				const [txHash, outputIndex] = selectedRental.split('#');
-				console.log('Looking for UTXO:', txHash, outputIndex);
+				const utxo = JSON.parse(selectedOption.dataset.utxo);
+				console.log('Selected UTXO:', utxo);
 				
-				// Get the UTXO
-				const utxos = await provider.fetchAddressUTxOs(scriptAddress);
-				const escrowUtxo = utxos.find(utxo => 
-					utxo.input.txHash === txHash && 
-					utxo.input.outputIndex === parseInt(outputIndex)
-				);
-				
-				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
-				console.log('Found escrow UTXO');
-
-				// For this example, we'll construct the datum manually
-				// In production, you'd parse the CBOR datum properly
+				// For now, we'll need to manually construct the datum
+				// In production, use proper CBOR parsing
 				const renterPkh = resolvePaymentKeyHash(walletAddress);
 				const currentTime = Date.now();
 				const deadline = currentTime + (days * 86400000); // milliseconds
 
+				// Hardcoded values for testing - in production, parse from datum
+				const lenderPkh = 'b62dfb058c502b5b2519f566732774d8c55764614571334deecf0ac7';
+				const daily_fee = 1000000;
+				const min_days = 1;
+				const max_days = 30;
+				const auto_relist = true;
+				const nftAsset = utxo.output.amount.find(a => a.unit !== 'lovelace');
+				const nft_policy = nftAsset.unit.slice(0, 56);
+				const nft_name = nftAsset.unit.slice(56);
+
 				// Build updated datum
-				const updatedDatum = {
-					constructor: 0,
-					fields: [
-						escrowUtxo.output.plutusData.fields[0], // lender_pkh
-						escrowUtxo.output.plutusData.fields[1], // daily_fee
-						escrowUtxo.output.plutusData.fields[2], // min_days
-						escrowUtxo.output.plutusData.fields[3], // max_days
-						escrowUtxo.output.plutusData.fields[4], // auto_relist
-						{ constructor: 0, fields: [renterPkh] }, // renter_pkh: Some
-						{ constructor: 0, fields: [deadline] }, // deadline: Some
-						escrowUtxo.output.plutusData.fields[7], // nft_policy
-						escrowUtxo.output.plutusData.fields[8] // nft_name
-					]
-				};
+				const updatedDatum = mConStr0([
+					lenderPkh, // lender_pkh
+					daily_fee, // daily_fee
+					min_days, // min_days
+					max_days, // max_days
+					auto_relist ? mConStr1([]) : mConStr0([]), // auto_relist
+					mConStr0([renterPkh]), // renter_pkh: Some
+					mConStr0([deadline]), // deadline: Some
+					nft_policy, // nft_policy
+					nft_name // nft_name
+				]);
 
 				// Build redeemer
-				const redeemer = {
-					data: { constructor: 0, fields: [days] }, // Rent variant
-					tag: 'SPEND'
-				};
+				const redeemer = mConStr0([days]); // Rent variant
 
 				// Calculate fee
-				const daily_fee = parseInt(escrowUtxo.output.plutusData.fields[1]);
 				const fee = daily_fee * days;
-				const lenderAddress = escrowUtxo.output.plutusData.fields[0]; // Need to convert to address
 
 				// Build transaction
 				const tx = new Transaction({ initiator: wallet });
 				
-				// Set validity interval
-				const slot = provider.currentSlot();
-				tx.setTimeToStart(slot);
-				tx.setTimeToExpire(slot + 600);
+				// Get current slot for validity interval
+				const currentSlot = resolveSlotNo('preprod');
+				tx.setTimeToStart(currentSlot);
+				tx.setTimeToExpire(currentSlot + 600);
 				
-				// Add required signer
+				// Add required signers
 				tx.setRequiredSigners([walletAddress]);
 				
 				// Spend from script
 				tx.redeemValue({
-					value: escrowUtxo,
+					value: utxo,
 					script: {
 						code: scriptCBOR,
 						version: 'V2'
 					},
+					datum: utxo.output.plutusData,
 					redeemer: redeemer
 				});
 				
-				// Pay fee to lender (need to construct proper address)
-				// For now, using a placeholder - in production, construct from PKH
-				tx.sendLovelace(walletAddress, fee.toString()); // Should send to lender
+				// Pay fee to lender - need to construct address from PKH
+				// For now, using placeholder
+				tx.sendLovelace(walletAddress, fee); // Should send to lender
 				
 				// Return NFT to script with updated datum
-				const nftAsset = escrowUtxo.output.amount.find(a => a.unit !== 'lovelace');
 				tx.sendAssets(
 					{
 						address: scriptAddress,
