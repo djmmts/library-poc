@@ -252,69 +252,17 @@
 
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
-				// Debug logging
-				console.log('Creating updated datum with:');
-				console.log('datum[0] (lender_pkh):', datum[0], typeof datum[0]);
-				console.log('datum[1] (daily_fee):', datum[1], typeof datum[1]);
-				console.log('datum[4] (auto_relist):', datum[4]);
-				console.log('renterPkh:', renterPkh, typeof renterPkh);
-				console.log('deadline:', deadline, typeof deadline);
-				console.log('datum[7] (nft_policy):', datum[7], typeof datum[7]);
-				console.log('datum[8] (nft_name):', datum[8], typeof datum[8]);
-				console.log('Constr available?', typeof Constr);
-
-				// Try using lucid's fromHex utility for hex strings
-				const { C, toHex, fromHex } = lucid.utils;
-
-				try {
-					// Updated datum as array
-					const updatedDatum = Data.to([
-						fromHex(datum[0]), // lender_pkh converted from hex
-						datum[1], // daily_fee (already a bigint)
-						datum[2], // min_days (already a bigint)
-						datum[3], // max_days (already a bigint)
-						new Constr(datum[4].index, []), // auto_relist
-						new Constr(0, [fromHex(renterPkh)]), // renter_pkh (Some with renter's PKH)
-						new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline (Some with deadline)
-						fromHex(datum[7]), // nft_policy converted from hex
-						fromHex(datum[8])  // nft_name converted from hex
-					]);
-					console.log('Datum created successfully');
-				} catch (e) {
-					console.error('Error creating datum:', e);
-					
-					// Try without fromHex conversions
-					try {
-						const updatedDatum2 = Data.to({
-							list: [
-								datum[0], // lender_pkh
-								datum[1], // daily_fee
-								datum[2], // min_days
-								datum[3], // max_days
-								new Constr(datum[4].index, []), // auto_relist
-								new Constr(0, [renterPkh]), // renter_pkh
-								new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline
-								datum[7], // nft_policy
-								datum[8]  // nft_name
-							]
-						});
-						console.log('Datum created with list wrapper');
-					} catch (e2) {
-						console.error('Error with list wrapper:', e2);
-					}
-				}
-
-				// Updated datum as array
+				// Updated datum - match the exact format used in listButton
 				const updatedDatum = Data.to([
-					datum[0], // lender_pkh (keep as string)
-					datum[1], // daily_fee (already a bigint)
-					datum[2], // min_days (already a bigint)
-					datum[3], // max_days (already a bigint)
-					new Constr(datum[4].index, []), // auto_relist (use Constr class)
-					new Constr(0, [renterPkh]), // renter_pkh (Some with renter's PKH)
-					new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline (Some with deadline as BigInt)
-					datum[7], // nft_policy (keep as string)
-					datum[8]  // nft_name (keep as string)
+					datum[0], // lender_pkh - keep as is (string)
+					datum[1], // daily_fee - keep as is (bigint)
+					datum[2], // min_days - keep as is (bigint) 
+					datum[3], // max_days - keep as is (bigint)
+					new Constr(datum[4].index, []), // auto_relist
+					new Constr(0, [renterPkh]), // renter_pkh Some variant
+					new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant
+					datum[7], // nft_policy - keep as is (string)
+					datum[8]  // nft_name - keep as is (string)
 				]);
 
 				// Redeemer for Rent
@@ -323,9 +271,9 @@
 					fields: [ BigInt(days) ]
 				});
 
-				// Payment to lender
+				// Payment to lender  
 				const fee = datum[1] * BigInt(days);
-				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] });
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] }, lucid.network);
 
 				// Build tx
 				const tx = await lucid.newTx()
