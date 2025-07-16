@@ -403,56 +403,64 @@
 				console.log('Attempting to build transaction...');
 
 				// Build transaction
-				const txBuilder = lucid.newTx();
-				
-				// Add validity interval FIRST - the script requires this
-				// Use integer slots, not strings
+				let tx;
 				try {
-					const currentSlot = Math.floor(lucid.utils.unixTimeToSlot(Date.now()));
-					const fromSlot = currentSlot;
-					const toSlot = currentSlot + 600; // ~10 minutes
+					// Start with a fresh transaction
+					tx = lucid.newTx();
 					
-					console.log('Setting validity interval - from:', fromSlot, 'to:', toSlot);
-					console.log('Type of fromSlot:', typeof fromSlot, 'Type of toSlot:', typeof toSlot);
+					// Add the validity interval using the provider's current slot
+					const currentSlot = await lucid.provider.getSlot();
+					console.log('Current slot from provider:', currentSlot);
 					
-					// Use integer values directly
-					txBuilder.validFrom(fromSlot);
-					txBuilder.validTo(toSlot);
+					tx = tx.validFrom(currentSlot);
+					tx = tx.validTo(currentSlot + 600);
 					
-					console.log('Validity interval set successfully');
-				} catch (e) {
-					console.error('Error setting validity interval:', e);
-					throw e;
-				}
-				
-				// Add the input with redeemer and attach the validator
-				console.log('Adding script input with redeemer:', redeemer);
-				txBuilder.collectFrom([escrowUtxo], redeemer);
-				
-				console.log('Attaching PlutusV2 validator, script length:', validator.script.length);
-				txBuilder.attachSpendingValidator(validator);
-				
-				// Add outputs
-				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
-				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-				
-				// Add required signer - the script expects this
-				txBuilder.addSigner(renterAddress);
-				console.log('Added signer:', renterAddress);
-				
-				// Complete the transaction
-				console.log('Completing transaction...');
-				try {
-					const tx = await txBuilder.complete();
-					console.log('Transaction completed successfully');
+					console.log('Validity interval set');
 					
-					const signedTx = await tx.sign().complete();
+					// Add the input with redeemer
+					tx = tx.collectFrom([escrowUtxo], redeemer);
+					
+					// Attach the validator
+					tx = tx.attachSpendingValidator(validator);
+					
+					// Add outputs
+					tx = tx.payToAddress(lenderAddress, { lovelace: fee });
+					tx = tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+					
+					// Add signer
+					tx = tx.addSigner(renterAddress);
+					
+					console.log('Building complete transaction...');
+					const completeTx = await tx.complete();
+					console.log('Transaction built successfully');
+					
+					const signedTx = await completeTx.sign().complete();
 					const txHashResult = await signedTx.submit();
 
 					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
-					await populateRentalPicker(); // Refresh rentals after renting
+					await populateRentalPicker();
 				} catch (txError) {
-					console.error('Transaction error details:', txError);
+					console.error('Transaction error:', txError);
+					console.error('Error name:', txError.name);
+					console.error('Error message:', txError.message);
+					
+					// Try without validity interval as a test
+					if (txError.message && txError.message.includes('ParseIntError')) {
+						console.log('Retrying without validity interval...');
+						try {
+							const tx2 = lucid.newTx()
+								.collectFrom([escrowUtxo], redeemer)
+								.attachSpendingValidator(validator)
+								.payToAddress(lenderAddress, { lovelace: fee })
+								.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn)
+								.addSigner(renterAddress);
+							
+							const completeTx2 = await tx2.complete();
+							console.log('Built without validity interval - this will fail at script execution');
+						} catch (e2) {
+							console.error('Second attempt error:', e2);
+						}
+					}
 					throw txError;
 				}
 				
