@@ -262,6 +262,20 @@
 				console.log('datum[7] (nft_policy):', datum[7], typeof datum[7]);
 				console.log('datum[8] (nft_name):', datum[8], typeof datum[8]);
 
+				try {
+					// Try creating the datum piece by piece to isolate the error
+					console.log('Testing individual serializations:');
+					console.log('Test 1:', Data.to(datum[0])); // Test PKH
+					console.log('Test 2:', Data.to(datum[1])); // Test bigint
+					console.log('Test 3:', Data.to({ constructor: datum[4].index, fields: [] })); // Test constructor
+					console.log('Test 4:', Data.to({ constructor: 0, fields: [renterPkh] })); // Test Some with PKH
+					console.log('Test 5:', Data.to({ constructor: 0, fields: [BigInt(Math.floor(deadline))] })); // Test Some with deadline
+					console.log('Test 6:', Data.to(datum[7])); // Test policy
+					console.log('Test 7:', Data.to(datum[8])); // Test name
+				} catch (e) {
+					console.error('Individual test failed:', e);
+				}
+
 				// Updated datum as array
 				const updatedDatum = Data.to([
 					datum[0], // lender_pkh (keep as string)
