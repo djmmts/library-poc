@@ -134,7 +134,7 @@
 							const name = hexToString(datum[8]);
 							const option = document.createElement('option');
 							option.value = utxo.txHash + '#' + utxo.outputIndex;
-							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
+							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${Number(datum[2])}-${Number(datum[3])} days`;
 							rentalPicker.appendChild(option);
 						}
 					} catch (e) {
@@ -164,7 +164,7 @@
 				const daily_fee = parseInt(document.getElementById('daily_fee').value);
 				const min_days = parseInt(document.getElementById('min_days').value);
 				const max_days = parseInt(document.getElementById('max_days').value);
-				const auto_relist = document.getElementById('auto_relist').checked;
+				const auto_relist = document.getElementById('auto_relist').checked ? "True" : "False";
 				const selectedNft = document.getElementById('nft_picker').value;
 
 				if (!selectedNft || daily_fee <= 0 || min_days <= 0 || max_days <= 0 || min_days > max_days) throw new Error('Invalid listing inputs');
@@ -218,7 +218,7 @@
 				// Read datum from UTxO
 				const datum = Data.from(escrowUtxo.datum, datumSchema);
 
-				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
+				if (days < Number(datum[2]) || days > Number(datum[3])) throw new Error('Days out of range');
 				if (datum[5]) throw new Error('Already rented');
 
 				// Get renter PKH
@@ -246,8 +246,8 @@
 					datum[2],
 					datum[3],
 					datum[4],
-					renterPkh,
-					BigInt(deadline),
+					{ Some: renterPkh },
+					{ Some: BigInt(deadline) },
 					datum[7],
 					datum[8]
 				], datumSchema);
