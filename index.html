@@ -49,8 +49,9 @@
 		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.10/web/mod.js";
 
 		// Keep the original values - they should be correct
-		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c';
-		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975';
+		// Script address will be derived from the validator
+		let scriptAddress;
+		const scriptHash = 'b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36';
 		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W';
 		
 		// The actual compiled Plutus script - this should be the raw hex, not CBOR wrapped
@@ -67,30 +68,20 @@
 				'Preprod'
 			);
 			
-			// The script hash from the address should be: 9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975
-			// Let's verify this by decoding the address
-			const addressDetails = lucid.utils.getAddressDetails(scriptAddress);
-			console.log('Script address details:', addressDetails);
-			
-			// Since we can't get the script from blockchain and our CBOR doesn't match,
-			// we need the correct script. For now, let's create a dummy validator
-			// that will fail, but at least allow us to see the actual error from the blockchain
-			
-			console.log('WARNING: Using placeholder script - transaction will likely fail with script error');
-			
-			// Create a simple always-fail script as placeholder
-			// This is a minimal Plutus script that always fails
-			// The hex below is for a script that immediately errors
-			const placeholderScript = '49480100002221200101';
-			
+			// Create validator from our CBOR
 			validator = {
 				type: "PlutusV2",
-				script: scriptCBOR // Still use our script, even though hash doesn't match
+				script: scriptCBOR
 			};
 			
+			// Derive the script address from our validator
+			scriptAddress = lucid.utils.validatorToAddress(validator);
 			const derivedHash = lucid.utils.validatorToScriptHash(validator);
-			console.log('Using script with hash:', derivedHash);
-			console.log('Expected hash:', scriptHash);
+			
+			console.log('Using new deployment:');
+			console.log('Script hash:', derivedHash);
+			console.log('Script address:', scriptAddress);
+			console.log('✓ Ready to use!');
 		}
 
 		// Function to hex-decode asset name to readable string if possible
@@ -311,6 +302,12 @@
 				const renterAddress = await lucid.wallet.address();
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 				console.log('Renter PKH:', renterPkh);
+				console.log('Lender PKH:', datum[0]);
+				
+				if (renterPkh === datum[0]) {
+					console.warn('WARNING: You are trying to rent your own NFT!');
+					// Continue anyway for testing
+				}
 
 				// Calculate deadline (current time + days * seconds per day)
 				console.log('Fetching current time...');
@@ -402,17 +399,26 @@
 				// Build transaction
 				const txBuilder = lucid.newTx();
 				
-				// Add the input with redeemer
+				// Add the input with redeemer and attach the validator
 				txBuilder.collectFrom([escrowUtxo], redeemer);
-				
-				// Always attach our validator, even if hash doesn't match
-				// This will give us a more specific error from the blockchain
-				console.log('Attaching validator (hash mismatch expected)');
 				txBuilder.attachSpendingValidator(validator);
 				
 				// Add outputs
 				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
 				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+				
+				// Add validity interval for time-based validation
+				try {
+					const now = Date.now();
+					const currentSlot = lucid.utils.unixTimeToSlot(now);
+					const fromSlot = Math.max(0, currentSlot - 1000);
+					const toSlot = currentSlot + 3600;
+					txBuilder.validFrom(fromSlot);
+					txBuilder.validTo(toSlot);
+					console.log('Valid time range set:', fromSlot, 'to', toSlot);
+				} catch (e) {
+					console.error('Error setting validity interval:', e);
+				}
 				
 				// Complete the transaction
 				console.log('Completing transaction...');
