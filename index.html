@@ -350,11 +350,15 @@
 				// Build transaction
 				const txBuilder = lucid.newTx();
 				
-				// Add the input with redeemer
-				txBuilder.collectFrom([escrowUtxo], redeemer);
+				// Create the validator script object
+				const validator = {
+					type: "PlutusV2",
+					script: scriptCBOR
+				};
 				
-				// Don't attach any validator - let Lucid resolve it from the script address
-				// Since the listing worked without attaching a validator, the rent should too
+				// Add the input with redeemer and attach the validator
+				txBuilder.collectFrom([escrowUtxo], redeemer);
+				txBuilder.attachSpendingValidator(validator);
 				
 				// Add outputs
 				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
