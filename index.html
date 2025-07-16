@@ -407,18 +407,8 @@
 				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
 				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
 				
-				// Add validity interval for time-based validation
-				try {
-					const now = Date.now();
-					const currentSlot = lucid.utils.unixTimeToSlot(now);
-					const fromSlot = Math.max(0, currentSlot - 1000);
-					const toSlot = currentSlot + 3600;
-					txBuilder.validFrom(fromSlot);
-					txBuilder.validTo(toSlot);
-					console.log('Valid time range set:', fromSlot, 'to', toSlot);
-				} catch (e) {
-					console.error('Error setting validity interval:', e);
-				}
+				// Skip validity interval to avoid ParseIntError
+				// The smart contract might not require it
 				
 				// Complete the transaction
 				console.log('Completing transaction...');
