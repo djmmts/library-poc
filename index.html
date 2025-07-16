@@ -46,7 +46,7 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.10/web/mod.js";
+		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		// Keep the original values - they should be correct
 		// Script address will be derived from the validator
@@ -69,8 +69,9 @@
 			);
 			
 			// Create validator from our CBOR
+			// Try PlutusV2 as Lucid might not support V3 yet
 			validator = {
-				type: "PlutusV3", // Updated to V3 based on aiken.toml
+				type: "PlutusV2", // Lucid might treat V3 scripts as V2
 				script: scriptCBOR
 			};
 			
