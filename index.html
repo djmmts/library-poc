@@ -7,7 +7,7 @@
 </head>
 <body>
 	<style>
-		body { background-color: rgb(63, 63, 63); color: #d6d6d6}
+		body { background-color: black; color: #aeaeae}
 	</style>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
 	<p>Connect your Eternl wallet on Preprod network.</p>
@@ -139,7 +139,7 @@
 						}
 					} catch (e) {
 						console.log('Invalid datum for UTxO', utxo.txHash, e);
-						continue;
+						// Skip invalid datums
 					}
 				}
 			}
