@@ -329,6 +329,19 @@
 					// Extract the auto_relist value from the original datum
 					const autoRelistValue = datum[4].index || 0;
 					
+					// Debug log the values before creating datum
+					console.log('Creating datum with values:', {
+						lender_pkh: datum[0],
+						daily_fee: datum[1],
+						min_days: datum[2],
+						max_days: datum[3],
+						auto_relist: autoRelistValue,
+						renter_pkh: renterPkh,
+						deadline: deadline,
+						nft_policy: datum[7],
+						nft_name: datum[8]
+					});
+					
 					updatedDatum = Data.to([
 						datum[0], // lender_pkh - keep as is (string)
 						datum[1], // daily_fee - keep as is (bigint)
@@ -341,19 +354,10 @@
 						datum[8]  // nft_name - keep as is (string)
 					]);
 					console.log('Updated datum created successfully');
+					console.log('Updated datum hex:', updatedDatum);
 				} catch (e) {
 					console.error('Error creating updated datum:', e);
-					console.error('Datum values:', {
-						lender_pkh: datum[0],
-						daily_fee: datum[1],
-						min_days: datum[2],
-						max_days: datum[3],
-						auto_relist: datum[4],
-						renter_pkh: renterPkh,
-						deadline: deadline,
-						nft_policy: datum[7],
-						nft_name: datum[8]
-					});
+					console.error('Error details:', e.message, e.stack);
 					throw e;
 				}
 
@@ -361,10 +365,13 @@
 				console.log('Creating redeemer...');
 				let redeemer;
 				try {
+					console.log('Days for redeemer:', days, typeof days);
 					redeemer = Data.to(new Constr(0, [BigInt(days)]));
 					console.log('Redeemer created successfully');
+					console.log('Redeemer hex:', redeemer);
 				} catch (e) {
 					console.error('Error creating redeemer:', e);
+					console.error('Error details:', e.message, e.stack);
 					throw e;
 				}
 
@@ -402,22 +409,13 @@
 				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
 				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
 				
-				// Add valid time range (required for time-based validators)
-				try {
-					const now = Date.now();
-					const currentSlot = lucid.utils.unixTimeToSlot(now);
-					const fromSlot = Math.max(0, currentSlot - 1000);
-					const toSlot = currentSlot + 3600;
-					txBuilder.validFrom(fromSlot);
-					txBuilder.validTo(toSlot);
-					console.log('Valid time range set:', fromSlot, 'to', toSlot);
-				} catch (e) {
-					console.error('Error setting validity interval:', e);
-					// Continue without validity interval if it fails
-				}
+				// Skip validity interval for now to isolate the ParseIntError
+				console.log('Skipping validity interval to debug ParseIntError');
 				
 				// Complete the transaction
+				console.log('Completing transaction...');
 				const tx = await txBuilder.complete();
+				console.log('Transaction completed successfully');
 				
 				console.log('Transaction built successfully');
 
