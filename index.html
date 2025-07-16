@@ -192,9 +192,9 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					{ constructor: auto_relist ? 1 : 0, fields: [] },
-					{ constructor: 1, fields: [] },
-					{ constructor: 1, fields: [] },
+					{ index: auto_relist ? 1 : 0, fields: [] },
+					{ index: 1, fields: [] },
+					{ index: 1, fields: [] },
 					nft_policy,
 					nft_name
 				]);
@@ -257,16 +257,16 @@
 					datum[1],
 					datum[2],
 					datum[3],
-					{ constructor: datum[4].index, fields: [] },
-					{ constructor: 0, fields: [renterPkh] },
-					{ constructor: 0, fields: [BigInt(deadline)] },
+					{ index: datum[4].index, fields: [] },
+					{ index: 0, fields: [renterPkh] },
+					{ index: 0, fields: [BigInt(deadline)] },
 					datum[7],
 					datum[8]
 				]);
 
 				// Redeemer for Rent
 				const redeemer = Data.to({
-					constructor: 0,
+					index: 0,
 					fields: [ BigInt(days) ]
 				});
 
