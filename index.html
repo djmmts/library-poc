@@ -264,15 +264,15 @@
 
 				// Updated datum as array
 				const updatedDatum = Data.to([
-					datum[0], // lender_pkh (already a string)
+					datum[0], // lender_pkh (keep as string)
 					datum[1], // daily_fee (already a bigint)
 					datum[2], // min_days (already a bigint)
 					datum[3], // max_days (already a bigint)
 					{ constructor: datum[4].index, fields: [] }, // auto_relist (recreate the constructor)
 					{ constructor: 0, fields: [renterPkh] }, // renter_pkh (Some with renter's PKH)
-					{ constructor: 0, fields: [BigInt(deadline)] }, // rental_deadline (Some with deadline)
-					datum[7], // nft_policy (already a string)
-					datum[8]  // nft_name (already a string)
+					{ constructor: 0, fields: [BigInt(Math.floor(deadline))] }, // rental_deadline (Some with deadline as BigInt)
+					datum[7], // nft_policy (keep as string)
+					datum[8]  // nft_name (keep as string)
 				]);
 
 				// Redeemer for Rent
