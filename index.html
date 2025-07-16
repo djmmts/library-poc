@@ -46,7 +46,7 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
+		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
@@ -193,9 +193,9 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					{ constructor: auto_relist ? 1 : 0, fields: [] },
-					{ constructor: 1, fields: [] },
-					{ constructor: 1, fields: [] },
+					new Constr(auto_relist ? 1 : 0, []),
+					new Constr(1, []), // None for renter
+					new Constr(1, []), // None for deadline
 					nft_policy,
 					nft_name
 				]);
@@ -262,29 +262,15 @@
 				console.log('datum[7] (nft_policy):', datum[7], typeof datum[7]);
 				console.log('datum[8] (nft_name):', datum[8], typeof datum[8]);
 
-				try {
-					// Try creating the datum piece by piece to isolate the error
-					console.log('Testing individual serializations:');
-					console.log('Test 1:', Data.to(datum[0])); // Test PKH
-					console.log('Test 2:', Data.to(datum[1])); // Test bigint
-					console.log('Test 3:', Data.to({ constructor: datum[4].index, fields: [] })); // Test constructor
-					console.log('Test 4:', Data.to({ constructor: 0, fields: [renterPkh] })); // Test Some with PKH
-					console.log('Test 5:', Data.to({ constructor: 0, fields: [BigInt(Math.floor(deadline))] })); // Test Some with deadline
-					console.log('Test 6:', Data.to(datum[7])); // Test policy
-					console.log('Test 7:', Data.to(datum[8])); // Test name
-				} catch (e) {
-					console.error('Individual test failed:', e);
-				}
-
 				// Updated datum as array
 				const updatedDatum = Data.to([
 					datum[0], // lender_pkh (keep as string)
 					datum[1], // daily_fee (already a bigint)
 					datum[2], // min_days (already a bigint)
 					datum[3], // max_days (already a bigint)
-					{ constructor: datum[4].index, fields: [] }, // auto_relist (recreate the constructor)
-					{ constructor: 0, fields: [renterPkh] }, // renter_pkh (Some with renter's PKH)
-					{ constructor: 0, fields: [BigInt(Math.floor(deadline))] }, // rental_deadline (Some with deadline as BigInt)
+					new Constr(datum[4].index, []), // auto_relist (use Constr class)
+					new Constr(0, [renterPkh]), // renter_pkh (Some with renter's PKH)
+					new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline (Some with deadline as BigInt)
 					datum[7], // nft_policy (keep as string)
 					datum[8]  // nft_name (keep as string)
 				]);
