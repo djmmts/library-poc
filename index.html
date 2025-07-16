@@ -413,10 +413,14 @@
 					const currentSlot = lucid.utils.unixTimeToSlot(now);
 					console.log('Current time:', now, 'Current slot:', currentSlot);
 					
-					// Try without parsing - just use the slot numbers directly
-					console.log('Setting validity interval...');
-					tx.validFrom(currentSlot);
-					tx.validTo(currentSlot + 600);
+					// Try using string representation for slots
+					console.log('Setting validity interval with strings...');
+					const fromSlot = String(currentSlot);
+					const toSlot = String(currentSlot + 600);
+					console.log('From slot (string):', fromSlot, 'To slot (string):', toSlot);
+					
+					tx.validFrom(fromSlot);
+					tx.validTo(toSlot);
 					
 					console.log('Validity interval set');
 					
@@ -444,16 +448,37 @@
 					await populateRentalPicker();
 				} catch (txError) {
 					console.error('Transaction error:', txError);
-					console.error('Full error stack:', txError.stack);
+					console.error('Full error:', txError.toString());
 					
-					// Check if it's still ParseIntError
+					// If still getting ParseIntError, try one more approach
 					if (txError.message && txError.message.includes('ParseIntError')) {
-						console.error('ParseIntError details:', {
-							redeemer: redeemer,
-							datum: updatedDatum,
-							currentSlot: lucid.utils.unixTimeToSlot(Date.now()),
-							scriptLength: validator.script.length
-						});
+						console.log('ParseIntError - trying with explicit integer conversion...');
+						try {
+							const tx2 = lucid.newTx();
+							
+							// Use parseInt to ensure proper integer
+							const slot = parseInt(lucid.utils.unixTimeToSlot(Date.now()));
+							tx2.validFrom(slot);
+							tx2.validTo(slot + 600);
+							
+							tx2.collectFrom([escrowUtxo], redeemer);
+							tx2.attachSpendingValidator(validator);
+							tx2.payToAddress(lenderAddress, { lovelace: fee });
+							tx2.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+							tx2.addSigner(renterAddress);
+							
+							const completeTx2 = await tx2.complete();
+							console.log('Second attempt succeeded!');
+							
+							const signedTx2 = await completeTx2.sign().complete();
+							const txHashResult2 = await signedTx2.submit();
+
+							document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult2}`;
+							await populateRentalPicker();
+							return;
+						} catch (e2) {
+							console.error('Second attempt also failed:', e2);
+						}
 					}
 					throw txError;
 				}
