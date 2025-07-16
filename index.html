@@ -49,9 +49,7 @@
 		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
-		// This should be the actual compiled script CBOR hex, not just the hash
-		// You need to get this from your Aiken build output (plutus.json or similar)
-		const scriptCBOR = 'YOUR_SCRIPT_CBOR_HEX_HERE'; // TODO: Replace with actual script CBOR
+		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
 		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // Hardcoded for POC - replace with your actual key
 		
 		let lucid;
@@ -107,56 +105,60 @@
 
 		// Populate rental picker from script UTxOs
 		async function populateRentalPicker() {
-			const rentalPicker = document.getElementById('rental_picker');
-			rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
-			
-			const utxos = await lucid.utxosAt(scriptAddress);
-			console.log(`Found ${utxos.length} UTxOs at script address`);
-			
-			for (const utxo of utxos) {
-				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					if (!utxo.datum) {
-						console.log('Skipping UTxO without inline datum');
-						continue;
-					}
-					try {
-						const rawDatum = Data.from(utxo.datum);
-						console.log('Raw datum structure:', rawDatum);
-						
-						// Check if it's an array/list structure
-						if (!Array.isArray(rawDatum)) {
-							console.log('Skipping non-array datum');
+			try {
+				const rentalPicker = document.getElementById('rental_picker');
+				rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
+				
+				const utxos = await lucid.utxosAt(scriptAddress);
+				console.log(`Found ${utxos.length} UTxOs at script address`);
+				
+				for (const utxo of utxos) {
+					if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
+						if (!utxo.datum) {
+							console.log('Skipping UTxO without inline datum');
 							continue;
 						}
-						
-						const datum = rawDatum;
-						
-						// Validate datum has expected structure (9 elements)
-						if (datum.length !== 9) {
-							console.log(`Skipping datum with wrong length: ${datum.length}`);
-							continue;
-						}
-						
-						// Check if renter_pkh (index 5) indicates not rented
-						const renter_pkh = datum[5];
-						if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
-							const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
-							const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
-							const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
-							const max_days = datum[3] && typeof datum[3] === 'bigint' ? Number(datum[3]) : 0;
+						try {
+							const rawDatum = Data.from(utxo.datum);
+							console.log('Raw datum structure:', rawDatum);
 							
-							const option = document.createElement('option');
-							option.value = utxo.txHash + '#' + utxo.outputIndex;
-							option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
-							rentalPicker.appendChild(option);
-						} else {
-							console.log('Skipping rented NFT');
+							// Check if it's an array/list structure
+							if (!Array.isArray(rawDatum)) {
+								console.log('Skipping non-array datum');
+								continue;
+							}
+							
+							const datum = rawDatum;
+							
+							// Validate datum has expected structure (9 elements)
+							if (datum.length !== 9) {
+								console.log(`Skipping datum with wrong length: ${datum.length}`);
+								continue;
+							}
+							
+							// Check if renter_pkh (index 5) indicates not rented
+							const renter_pkh = datum[5];
+							if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
+								const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
+								const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
+								const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
+								const max_days = datum[3] && typeof datum[3] === 'bigint' ? Number(datum[3]) : 0;
+								
+								const option = document.createElement('option');
+								option.value = utxo.txHash + '#' + utxo.outputIndex;
+								option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
+								rentalPicker.appendChild(option);
+							} else {
+								console.log('Skipping rented NFT');
+							}
+						} catch (e) {
+							console.error('Error parsing datum:', e);
+							continue;
 						}
-					} catch (e) {
-						console.error('Error parsing datum:', e);
-						continue;
 					}
 				}
+			} catch (e) {
+				console.error('Error in populateRentalPicker:', e);
 			}
 		}
 
