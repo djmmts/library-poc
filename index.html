@@ -46,13 +46,25 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
+		import { Blockfrost, Lucid, Data } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
-		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // Hardcoded for POC - replace with your actual key
+		const blockfrostKey = 'api'; // Hardcoded for POC - replace with your actual key
 		
 		let lucid;
+
+		const datumSchema = Data.Tuple([
+			Data.Bytes(),
+			Data.Integer(),
+			Data.Integer(),
+			Data.Integer(),
+			Data.Boolean(),
+			Data.Nullable(Data.Bytes()),
+			Data.Nullable(Data.Integer()),
+			Data.Bytes(),
+			Data.Bytes()
+		]);
 
 		async function initLucid() {
 			lucid = await Lucid.new(
@@ -109,50 +121,16 @@
 			rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
 			
 			const utxos = await lucid.utxosAt(scriptAddress);
-			console.log(`Found ${utxos.length} UTxOs at script address`);
-			
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					if (!utxo.datum) {
-						console.log('Skipping UTxO without inline datum');
-						continue;
-					}
-					try {
-						const rawDatum = Data.from(utxo.datum);
-						console.log('Raw datum structure:', rawDatum);
-						
-						// Check if it's an array/list structure
-						if (!Array.isArray(rawDatum)) {
-							console.log('Skipping non-array datum');
-							continue;
-						}
-						
-						const datum = rawDatum;
-						
-						// Validate datum has expected structure (9 elements)
-						if (datum.length !== 9) {
-							console.log(`Skipping datum with wrong length: ${datum.length}`);
-							continue;
-						}
-						
-						// Check if renter_pkh (index 5) indicates not rented (None = index 1)
-						const renter_pkh = datum[5];
-						if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
-							const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
-							const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
-							const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
-							const max_days = datum[3] && typeof datum[3] === 'bigint' ? Number(datum[3]) : 0;
-							
-							const option = document.createElement('option');
-							option.value = utxo.txHash + '#' + utxo.outputIndex;
-							option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
-							rentalPicker.appendChild(option);
-						} else {
-							console.log('Skipping rented NFT');
-						}
-					} catch (e) {
-						console.error('Error parsing datum:', e);
-						continue;
+					const datum = Data.from(utxo.datum, datumSchema);
+
+					if (!datum[5]) { // Only show available (not rented)
+						const name = hexToString(datum[8]);
+						const option = document.createElement('option');
+						option.value = utxo.txHash + '#' + utxo.outputIndex;
+						option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
+						rentalPicker.appendChild(option);
 					}
 				}
 			}
@@ -192,12 +170,12 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					{ index: auto_relist ? 1 : 0, fields: [] },
-					{ index: 1, fields: [] },
-					{ index: 1, fields: [] },
+					auto_relist,
+					null,
+					null,
 					nft_policy,
 					nft_name
-				]);
+				], datumSchema);
 
 				const assets = {
 					[`${nft_policy}${nft_name}`]: 1n,
@@ -228,27 +206,24 @@
 				const escrowUtxo = (await lucid.utxosAt(scriptAddress)).find(utxo => utxo.txHash === txHash && utxo.outputIndex === parseInt(outputIndex));
 				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
-				if (!escrowUtxo.datum) throw new Error('Escrow UTxO has no inline datum');
-
 				// Read datum from UTxO
-				const rawDatum = Data.from(escrowUtxo.datum);
-				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
-				const datum = rawDatum;
+				const datum = Data.from(escrowUtxo.datum, datumSchema);
 
-				if (days < Number(datum[2]) || days > Number(datum[3])) throw new Error('Days out of range');
-				if (datum[5].index !== 1) throw new Error('Already rented');
+				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
+				if (datum[5]) throw new Error('Already rented');
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
 				// Calculate deadline (current time + days * ms per day)
-				const latestBlockResponse = await fetch('https://cardano-preprod.blockfrost.io/api/v0/blocks/latest', {
-					headers: { 'project_id': blockfrostKey }
-				});
-				const latestBlock = await latestBlockResponse.json();
-				const currentTime = latestBlock.time * 1000;
-
+				const latestBlock = await lucid.provider.request('/blocks/latest');
+				const blockSlot = latestBlock.slot;
+				const blockTime = latestBlock.time;
+				const now = Math.floor(Date.now() / 1000);
+				const timeDiff = Math.max(0, now - blockTime); // Prevent negative diff if clock skew
+				const currentSlot = blockSlot + timeDiff;
+				const currentTime = lucid.utils.slotToUnixTime(currentSlot);
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
 				// Updated datum
@@ -257,18 +232,15 @@
 					datum[1],
 					datum[2],
 					datum[3],
-					{ index: datum[4].index, fields: [] },
-					{ index: 0, fields: [renterPkh] },
-					{ index: 0, fields: [BigInt(deadline)] },
+					datum[4],
+					renterPkh,
+					BigInt(deadline),
 					datum[7],
 					datum[8]
-				]);
+				], datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to({
-					index: 0,
-					fields: [ BigInt(days) ]
-				});
+				const redeemer = Data.to(new Data.Constr(0, [Data.integer(BigInt(days))]));
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
