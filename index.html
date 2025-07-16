@@ -46,7 +46,7 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
+		import { Blockfrost, Lucid, Data } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
@@ -65,6 +65,11 @@
 			Data.Nullable(Data.Integer()),
 			Data.Bytes(),
 			Data.Bytes()
+		]);
+
+		const redeemerSchema = Data.Enum([
+			Data.Tuple([Data.Integer()]) // For Rent redeemer: Constr 0 [Integer]
+			// Add more variants if there are other redeemers, e.g., Data.Literal("Reclaim") for Constr 1 []
 		]);
 
 		async function initLucid() {
@@ -245,7 +250,7 @@
 				], datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to(new Data.Constr(0, [Data.Integer(BigInt(days))]));
+				const redeemer = Data.to([BigInt(days)], redeemerSchema);
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
