@@ -345,24 +345,38 @@
 				// Build the assets to return to contract (NFT + remaining ADA)
 				const assetsToReturn = { ...escrowUtxo.assets };
 				assetsToReturn.lovelace = adaToReturn;
+				
+				console.log('Assets to return:', assetsToReturn);
+				console.log('Attempting to build transaction...');
 
-				// Build tx
-				const tx = await lucid.newTx()
-					.collectFrom([escrowUtxo], redeemer)
-					.attachSpendingValidator({
-						type: 'PlutusV3',
-						script: scriptCBOR
-					})
-					.payToAddress(lenderAddress, { lovelace: fee })
-					.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn)
-					.complete();
+				// Try building the transaction step by step
+				try {
+					const txBuilder = lucid.newTx();
+					
+					// Add the input with redeemer
+					txBuilder.collectFrom([escrowUtxo], redeemer);
+					
+					// Attach the validator - try without type specification
+					txBuilder.attachSpendingValidator(scriptCBOR);
+					
+					// Add outputs
+					txBuilder.payToAddress(lenderAddress, { lovelace: fee });
+					txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+					
+					// Complete the transaction
+					const tx = await txBuilder.complete();
+					
+					console.log('Transaction built successfully');
 
-				console.log('Transaction built, signing...');
-				const signedTx = await tx.sign().complete();
-				const txHashResult = await signedTx.submit();
+					const signedTx = await tx.sign().complete();
+					const txHashResult = await signedTx.submit();
 
-				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
-				await populateRentalPicker(); // Refresh rentals after renting
+					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
+					await populateRentalPicker(); // Refresh rentals after renting
+				} catch (txError) {
+					console.error('Transaction building error:', txError);
+					throw txError;
+				}
 			} catch (error) {
 				console.error('=== RENT ERROR ===');
 				console.error('Full error:', error);
