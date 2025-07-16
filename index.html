@@ -236,7 +236,7 @@
 				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
 				const datum = rawDatum;
 
-				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
+				if (days < Number(datum[2]) || days > Number(datum[3])) throw new Error('Days out of range');
 				if (datum[5].index !== 1) throw new Error('Already rented');
 
 				// Get renter PKH
@@ -260,7 +260,7 @@
 					datum[3], // max_days - keep as is (bigint)
 					new Constr(datum[4].index, []), // auto_relist
 					new Constr(0, [renterPkh]), // renter_pkh Some variant
-					new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant
+					new Constr(0, [BigInt(deadline)]), // deadline Some variant
 					datum[7], // nft_policy - keep as is (string)
 					datum[8]  // nft_name - keep as is (string)
 				]);
@@ -273,7 +273,7 @@
 
 				// Payment to lender  
 				const fee = datum[1] * BigInt(days);
-				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] }, lucid.network);
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] });
 
 				// Build tx
 				const tx = await lucid.newTx()
