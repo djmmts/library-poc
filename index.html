@@ -351,57 +351,13 @@
 
 				// Try building the transaction step by step
 				try {
-					// First, let's verify our script hash with different Plutus versions
-					console.log('Testing script hash calculations...');
-					
-					// Try PlutusV1
-					try {
-						const v1Hash = lucid.utils.validatorToScriptHash({
-							type: "PlutusV1",
-							script: scriptCBOR
-						});
-						console.log('PlutusV1 hash:', v1Hash);
-					} catch (e) {
-						console.log('PlutusV1 failed:', e.message);
-					}
-					
-					// Try PlutusV2
-					try {
-						const v2Hash = lucid.utils.validatorToScriptHash({
-							type: "PlutusV2",
-							script: scriptCBOR
-						});
-						console.log('PlutusV2 hash:', v2Hash);
-					} catch (e) {
-						console.log('PlutusV2 failed:', e.message);
-					}
-					
-					// Try PlutusV3 if supported
-					try {
-						const v3Hash = lucid.utils.validatorToScriptHash({
-							type: "PlutusV3",
-							script: scriptCBOR
-						});
-						console.log('PlutusV3 hash:', v3Hash);
-					} catch (e) {
-						console.log('PlutusV3 failed:', e.message);
-					}
-					
-					console.log('Expected hash:', scriptHash);
-					
-					// Now let's try using PlutusV1 since one of them might match
-					const validator = {
-						type: "PlutusV1",
-						script: scriptCBOR
-					};
-					
 					const txBuilder = lucid.newTx();
 					
 					// Add the input with redeemer
 					txBuilder.collectFrom([escrowUtxo], redeemer);
 					
-					// Attach the validator
-					txBuilder.attachSpendingValidator(validator);
+					// Don't attach any validator - let Lucid resolve it from the script address
+					// Since the listing worked without attaching a validator, the rent should too
 					
 					// Add outputs
 					txBuilder.payToAddress(lenderAddress, { lovelace: fee });
@@ -411,6 +367,16 @@
 					const tx = await txBuilder.complete();
 					
 					console.log('Transaction built successfully');
+
+					const signedTx = await tx.sign().complete();
+					const txHashResult = await signedTx.submit();
+
+					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
+					await populateRentalPicker(); // Refresh rentals after renting
+				} catch (txError) {
+					console.error('Transaction building error:', txError);
+					throw txError;
+				}
 
 					const signedTx = await tx.sign().complete();
 					const txHashResult = await signedTx.submit();
