@@ -46,7 +46,7 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
+		import { Blockfrost, Lucid, Data } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
@@ -193,9 +193,9 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					new Constr(auto_relist ? 1 : 0, []),
-					new Constr(1, []), // None for renter
-					new Constr(1, []), // None for deadline
+					{ constructor: auto_relist ? 1 : 0, fields: [] },
+					{ constructor: 1, fields: [] },
+					{ constructor: 1, fields: [] },
 					nft_policy,
 					nft_name
 				]);
