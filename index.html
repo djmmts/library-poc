@@ -50,7 +50,8 @@
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
-		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // Hardcoded for POC - replace with your actual key
+		const blockfrostKey = 'your_actual_preprod_key_here'; // IMPORTANT: Replace with your real Blockfrost project key for Preprod (e.g., 'preprodXXXXXXXXXXXXXXXXXXXXXXXX')
+		const blockfrostUrl = 'https://cardano-preprod.blockfrost.io/api/v0';
 		
 		let lucid;
 
@@ -68,7 +69,7 @@
 
 		async function initLucid() {
 			lucid = await Lucid.new(
-				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
+				new Blockfrost(blockfrostUrl, blockfrostKey),
 				'Preprod'
 			);
 		}
@@ -217,7 +218,11 @@
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
 				// Calculate deadline (current time + days * ms per day)
-				const latestBlock = await lucid.provider.request('/blocks/latest');
+				const response = await fetch(`${blockfrostUrl}/blocks/latest`, {
+					headers: { 'project_id': blockfrostKey }
+				});
+				if (!response.ok) throw new Error('Failed to fetch latest block');
+				const latestBlock = await response.json();
 				const blockSlot = latestBlock.slot;
 				const blockTime = latestBlock.time;
 				const now = Math.floor(Date.now() / 1000);
