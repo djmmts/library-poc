@@ -7,9 +7,9 @@
 </head>
 <body>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
-	<p>Connect your wallet on Preprod network.</p>
+	<p>Connect your Eternl wallet on Preprod network.</p>
 	
-	<button id="connectWallet">Connect Wallet</button>
+	<button id="connectWallet">Connect Eternl Wallet</button>
 	<p id="walletStatus"></p>
 
 	<h2>List Rental Offer</h2>
@@ -46,43 +46,39 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		// Import Mesh SDK from ESM CDN
-		import { 
-			BrowserWallet, 
-			Transaction, 
-			KoiosProvider,
-			resolvePaymentKeyHash,
-			resolveSlotNo,
-			mConStr0,
-			mConStr1,
-			stringToHex,
-			deserializeAddress,
-			serializePlutusScript
-		} from 'https://cdn.jsdelivr.net/npm/@meshsdk/core@1.5.18/+esm';
+		import { Blockfrost, Lucid, Data, Constr, fromHex, toHex } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		// Script configuration
-		const scriptCBOR = '59089359089301010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cdc3a400530080024888966002600460106ea800e2653001300d00198069807000cdc3a400091119912cc004c00c00626464b300130150028024590121bad3013001300f37540151598009804000c4c8c966002602a0050048b2024375a6026002601e6ea802a2b30013370e9002000c566002601e6ea802a005164041164034806900d0acc004c004c030dd50014660026020601a6ea800a4602260246024602460246024602460240032301130120019180898091809180918091809180918091809000cdd2a4000911114c004c966002601860246ea800626eb4c058c04cdd5000c59011180a98091baa301530123754600860246ea802a64b30013007301237540031375c602c60266ea80062c8088c96600200314c0103d87a8000898011980a980b000a5eb810141bac3002301237540153259800980398091baa0018980b18099baa0018b202232330010013758602c60266ea802c896600200314c103d87a80008992cc004cdd7980c180a9baa00100b898021980b800a5eb8226600600660320048098c05c0050154888c966002601e602a6ea80062900044dd6980c980b1baa001405064b3001300f3015375400314c0103d87a8000899198008009bab301a3017375400444b30010018a6103d87a8000899192cc004cdc8803000c56600266e3c0180062601266038603400497ae08a60103d87a80004061133004004301e00340606eb8c060004c06c005019202832330010010042259800800c5300103d87a8000899192cc004cdc8803000c56600266e3c0180062601066036603200497ae08a60103d87a8000405d133004004301d003405c6eb8c05c004c0680050182444464b3001301098009bab3008301737546010602e6ea800e6eb8c024c05cdd50054dd71803980b9baa00a4009198009180d980e180e000c8c06cc070c070c07000644646600200200644b30010018a508acc004c00cc0780062946266004004603e00280c901c48c06cc070c070c070c070006460366038603860386038603860380032301b301c301c301c301c301c301c001980b1baa0129ba548011222222223259800980a001c4c966002b3001301530203754600a60426ea80522942294501f456600266e24dd6980518109baa0140018acc004cdc48009bad30093021375402915980099b88480000062b30013002337046eb4c048c084dd500a000c4cc020dd6180518109baa01925980099baf30253022375400201915980099baf300b30223754002600866048602266048604a60446ea8054cc090c04cc088dd500a99812180598111baa01533024300a3022375402a660493001301b30213754601060446ea805698103d87a8000a60103d87980004080660486022660486ea403d2f5c0660486022660486ea0cdc000819b8200248203c2c9492f5c066048602860446ea8054cc090c048c088dd500aa5eb812f5c11301b98009bab301330223754003375c602860446ea80566eb8c048c088dd500aa01a8a50408114a08102294101f4528203e8a50407d14a080fa294101f1bad302330203754037159800980c801c4cc896600266e3cc966002602e60446ea800626eb8c098c08cdd5000c59021180318111baa01500f8acc004cdc4192cc004c070c088dd5000c4dd6981318119baa0018b2042302530223754602660446ea8c050c088dd500d000c56600266e2120000028acc004c00ccdc11bad30133022375402a0051330093758601660446ea806896600266ebcc098c08cdd5000806c56600266ebcc030c08cdd5000980299812980919812981318119baa0163302530143023375402c6604a601860466ea8058cc094c02cc08cdd500b19812cc004c070c088dd5180498119baa016a60103d87a8000a60103d879800040846604a600e60466ea8058cc094c048cc094dd419b8000233704006904078592925eb80cc094c054c08cdd500b19812980998119baa0164bd7025eb822603930013756602860466ea80066eb8c054c08cdd500b4dd7180998119baa016403914a0810a2941021452820408a50408114a0810229410201bad30233020375403664b30013015302037540031375a604860426ea80062c80f8c014c080dd5009c56600266e3c034dd7181198101baa0138acc005660026032603e6ea8c010c080dd5009c528c4cdc4192cc004c054c080dd5000c4dd6981218109baa0018b203e30053020375402601c80f22b300159800980c980f9baa30043020375402719800980c980f9baa3006302037540274a14a280f2294501e45660026032603e6ea8c018c080dd5009c4cc01cdd6180498101baa01825980099baf30243021375400201715980099baf300a30213754002600666046602066046604860426ea8050cc08cc048c084dd500a19811980518109baa01433023300930213754028660473001301a30203754600e60426ea8052980103d87a8000a60103d8798000407c6604698103d87a8000330234c103d87a80003302330133021375402866046602260426ea80512f5c097ae08980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e8a50407d1330073758601260406ea806096600264b300130163021375400313371e6eb8c094c088dd50009bae30253022375402b14a08100c090c084dd5181218109baa0018980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e407914a080f2294101e4528203c407880f08cdc480099198008009bac300a3021375403244b30010018a4001132332259800980c98121baa0028acc004cdc79bae3028302537540046eb8c0a0c094dd500c44cdc0000cc004dd5980b18129baa003a4500a4410040411001408d1001408c604c60466ea8c098c08cdd50009980180198138011812800a046459015180c980b1baa30073016375400445900b18061baa00818049baa0038b200e180400098019baa0088a4d13656400401';
+		const scriptCBOR = '59089359089301010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cdc3a400530080024888966002600460106ea800e2653001300d00198069807000cdc3a400091119912cc004c00c00626464b300130150028024590121bad3013001300f37540151598009804000c4c8c966002602a0050048b2024375a6026002601e6ea802a2b30013370e9002000c566002601e6ea802a005164041164034806900d0acc004c004c030dd50014660026020601a6ea800a4602260246024602460246024602460240032301130120019180898091809180918091809180918091809000cdd2a4000911114c004c966002601860246ea800626eb4c058c04cdd5000c59011180a98091baa301530123754600860246ea802a64b30013007301237540031375c602c60266ea80062c8088c96600200314c0103d87a8000898011980a980b000a5eb810141bac3002301237540153259800980398091baa0018980b18099baa0018b202232330010013758602c60266ea802c896600200314c103d87a80008992cc004cdd7980c180a9baa00100b898021980b800a5eb8226600600660320048098c05c0050154888c966002601e602a6ea80062900044dd6980c980b1baa001405064b3001300f3015375400314c0103d87a8000899198008009bab301a3017375400444b30010018a6103d87a8000899192cc004cdc8803000c56600266e3c0180062601266038603400497ae08a60103d87a80004061133004004301e00340606eb8c060004c06c005019202832330010010042259800800c5300103d87a8000899192cc004cdc8803000c56600266e3c0180062601066036603200497ae08a60103d87a8000405d133004004301d003405c6eb8c05c004c0680050182444464b3001301098009bab3008301737546010602e6ea800e6eb8c024c05cdd50054dd71803980b9baa00a4009198009180d980e180e000c8c06cc070c070c07000644646600200200644b30010018a508acc004c00cc0780062946266004004603e00280c901c48c06cc070c070c070c070006460366038603860386038603860380032301b301c301c301c301c301c001980b1baa0129ba548011222222223259800980a001c4c966002b3001301530203754600a60426ea80522942294501f456600266e24dd6980518109baa0140018acc004cdc48009bad30093021375402915980099b88480000062b30013002337046eb4c048c084dd500a000c4cc020dd6180518109baa01925980099baf30253022375400201915980099baf300b30223754002600866048602266048604a60446ea8054cc090c04cc088dd500a99812180598111baa01533024300a3022375402a660493001301b30213754601060446ea805698103d87a8000a60103d87980004080660486022660486ea403d2f5c0660486022660486ea0cdc000819b8200248203c2c9492f5c066048602860446ea8054cc090c048c088dd500aa5eb812f5c11301b98009bab301330223754003375c602860446ea80566eb8c048c088dd500aa01a8a50408114a08102294101f4528203e8a50407d14a080fa294101f1bad302330203754037159800980c801c4cc896600266e3cc966002602e60446ea800626eb8c098c08cdd5000c59021180318111baa01500f8acc004cdc4192cc004c070c088dd5000c4dd6981318119baa0018b2042302530223754602660446ea8c050c088dd500d000c56600266e2120000028acc004c00ccdc11bad30133022375402a0051330093758601660446ea806896600266ebcc098c08cdd5000806c56600266ebcc030c08cdd5000980299812980919812981318119baa0163302530143023375402c6604a601860466ea8058cc094c02cc08cdd500b19812cc004c070c088dd5180498119baa016a60103d87a8000a60103d879800040846604a600e60466ea8058cc094c048cc094dd419b8000233704006904078592925eb80cc094c054c08cdd500b19812980998119baa0164bd7025eb822603930013756602860466ea80066eb8c054c08cdd500b4dd7180998119baa016403914a0810a2941021452820408a50408114a0810229410201bad30233020375403664b30013015302037540031375a604860426ea80062c80f8c014c080dd5009c56600266e3c034dd7181198101baa0138acc005660026032603e6ea8c010c080dd5009c528c4cdc4192cc004c054c080dd5000c4dd6981218109baa0018b203e30053020375402601c80f22b300159800980c980f9baa30043020375402719800980c980f9baa3006302037540274a14a280f2294501e45660026032603e6ea8c018c080dd5009c4cc01cdd6180498101baa01825980099baf30243021375400201715980099baf300a30213754002600666046602066046604860426ea8050cc08cc048c084dd500a19811980518109baa01433023300930213754028660473001301a30203754600e60426ea8052980103d87a8000a60103d8798000407c6604698103d87a8000330234c103d87a80003302330133021375402866046602260426ea80512f5c097ae08980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e8a50407d1330073758601260406ea806096600264b300130163021375400313371e6eb8c094c088dd50009bae30253022375402b14a08100c090c084dd5181218109baa0018980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e407914a080f2294101e4528203c407880f08cdc480099198008009bac300a3021375403244b30010018a4001132332259800980c98121baa0028acc004cdc79bae3028302537540046eb8c0a0c094dd500c44cdc0000cc004dd5980b18129baa003a4500a4410040411001408d1001408c604c60466ea8c098c08cdd50009980180198138011812800a046459015180c980b1baa30073016375400445900b18061baa00818049baa0038b200e180400098019baa0088a4d13656400401';
 		
-		let wallet;
-		let provider;
-		let walletAddress;
-		const scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
+		let lucid;
+		let validator;
+		let scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
+		const scriptHash = 'b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36';
+		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W';
 
-		// Initialize provider
-		async function initProvider() {
-			provider = new KoiosProvider('preprod');
-			console.log('Script address:', scriptAddress);
-			console.log('Script hash: b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36');
+		async function initLucid() {
+			lucid = await Lucid.new(
+				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
+				'Preprod'
+			);
+			
+			// Create validator from our CBOR
+			validator = {
+				type: "PlutusV2",
+				script: scriptCBOR
+			};
+			
+			console.log('Using script address:', scriptAddress);
+			console.log('Script hash:', scriptHash);
+			console.log('✓ Ready to use!');
 		}
 
 		// Function to hex-decode asset name to readable string if possible
 		function hexToString(hex) {
 			try {
-				let str = '';
-				for (let i = 0; i < hex.length; i += 2) {
-					str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-				}
-				return str;
+				const bytes = fromHex(hex);
+				return new TextDecoder().decode(bytes);
 			} catch (e) {
 				return hex;
 			}
@@ -93,31 +89,28 @@
 			const nftPicker = document.getElementById('nft_picker');
 			nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
 			
-			try {
-				const utxos = await wallet.getUtxos();
-				const assets = {};
-				
-				utxos.forEach(utxo => {
-					utxo.output.amount.forEach(asset => {
-						if (asset.unit !== 'lovelace' && BigInt(asset.quantity) === 1n) {
-							assets[asset.unit] = true;
-						}
-					});
+			const utxos = await lucid.wallet.getUtxos();
+			const assets = {};
+			utxos.forEach(utxo => {
+				Object.entries(utxo.assets).forEach(([asset, qty]) => {
+					if (asset !== 'lovelace' && qty > 0n) {
+						if (!assets[asset]) assets[asset] = 0n;
+						assets[asset] += qty;
+					}
 				});
-				
-				Object.keys(assets).forEach(unit => {
-					const policyId = unit.slice(0, 56);
-					const assetName = unit.slice(56);
-					const name = hexToString(assetName);
-					
+			});
+
+			Object.keys(assets).forEach(asset => {
+				if (assets[asset] === 1n) { // Assume NFTs have quantity 1
+					const policy = asset.slice(0, 56);
+					const nameHex = asset.slice(56);
+					const name = hexToString(nameHex);
 					const option = document.createElement('option');
-					option.value = `${policyId}|${assetName}`;
-					option.textContent = `${name} (${policyId.slice(0, 10)}...)`;
+					option.value = `${policy}|${nameHex}`;
+					option.textContent = `Policy: ${policy.slice(0,10)}... Name: ${name} (Qty: 1)`;
 					nftPicker.appendChild(option);
-				});
-			} catch (e) {
-				console.error('Error populating NFTs:', e);
-			}
+				}
+			});
 		}
 
 		// Populate rental picker from script UTxOs
@@ -126,25 +119,50 @@
 				const rentalPicker = document.getElementById('rental_picker');
 				rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
 				
-				const utxos = await provider.fetchAddressUTxOs(scriptAddress);
+				const utxos = await lucid.utxosAt(scriptAddress);
 				console.log(`Found ${utxos.length} UTxOs at script address`);
 				
 				for (const utxo of utxos) {
-					// Check if UTXO has NFT and inline datum
-					const hasNft = utxo.output.amount.some(asset => asset.unit !== 'lovelace');
-					if (hasNft && utxo.output.plutusData) {
+					if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
+						if (!utxo.datum) {
+							console.log('Skipping UTxO without inline datum');
+							continue;
+						}
 						try {
-							// Extract NFT info from UTXO
-							const nftAsset = utxo.output.amount.find(asset => asset.unit !== 'lovelace');
-							const nftName = hexToString(nftAsset.unit.slice(56));
+							const rawDatum = Data.from(utxo.datum);
 							
-							const option = document.createElement('option');
-							option.value = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
-							option.textContent = `NFT: ${nftName} | Available for rent`;
-							option.dataset.utxo = JSON.stringify(utxo);
-							rentalPicker.appendChild(option);
+							// Check if it's an array/list structure
+							if (!Array.isArray(rawDatum)) {
+								console.log('Skipping non-array datum');
+								continue;
+							}
+							
+							const datum = rawDatum;
+							
+							// Validate datum has expected structure (9 elements)
+							if (datum.length !== 9) {
+								console.log(`Skipping datum with wrong length: ${datum.length}`);
+								continue;
+							}
+							
+							// Check if renter_pkh (index 5) indicates not rented
+							const renter_pkh = datum[5];
+							if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
+								const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
+								const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
+								const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
+								const max_days = datum[3] && typeof datum[3] === 'bigint' ? Number(datum[3]) : 0;
+								
+								const option = document.createElement('option');
+								option.value = utxo.txHash + '#' + utxo.outputIndex;
+								option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
+								rentalPicker.appendChild(option);
+							} else {
+								console.log('Skipping rented NFT');
+							}
 						} catch (e) {
-							console.error('Error parsing rental:', e);
+							console.error('Error parsing datum:', e);
+							continue;
 						}
 					}
 				}
@@ -153,33 +171,20 @@
 			}
 		}
 
-		// Connect wallet
 		document.getElementById('connectWallet').addEventListener('click', async () => {
-			try {
-				await initProvider();
-				
-				wallet = await BrowserWallet.enable('eternl');
-				
-				const networkId = await wallet.getNetworkId();
-				if (networkId !== 0) {
-					document.getElementById('walletStatus').textContent = 'Please switch to Preprod network!';
-					return;
-				}
-				
-				walletAddress = await wallet.getChangeAddress();
+			await initLucid();
+			if (window.cardano && window.cardano.eternl) {
+				lucid.selectWallet(await window.cardano.eternl.enable());
 				document.getElementById('walletStatus').textContent = 'Wallet connected!';
 				document.getElementById('listButton').disabled = false;
 				document.getElementById('rentButton').disabled = false;
-				
 				await populateNftPicker();
 				await populateRentalPicker();
-			} catch (error) {
-				console.error('Wallet connection error:', error);
-				document.getElementById('walletStatus').textContent = 'Failed to connect wallet: ' + error.message;
+			} else {
+				document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
 			}
 		});
 
-		// List NFT
 		document.getElementById('listButton').addEventListener('click', async () => {
 			try {
 				console.log('=== LIST BUTTON CLICKED ===');
@@ -194,144 +199,144 @@
 				}
 				
 				const [nft_policy, nft_name] = selectedNft.split('|');
-				const lenderPkh = resolvePaymentKeyHash(walletAddress);
 
-				// Build datum following Aiken structure using Mesh helpers
-				const datum = mConStr0([
-					lenderPkh, // lender_pkh
-					daily_fee, // daily_fee
-					min_days, // min_days
-					max_days, // max_days
-					auto_relist ? mConStr1([]) : mConStr0([]), // auto_relist
-					mConStr1([]), // renter_pkh: None
-					mConStr1([]), // deadline: None
-					nft_policy, // nft_policy
-					nft_name // nft_name
+				const lenderAddress = await lucid.wallet.address();
+				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
+
+				// Create datum as array directly
+				const datum = Data.to([
+					lenderPkh,
+					BigInt(daily_fee),
+					BigInt(min_days),
+					BigInt(max_days),
+					new Constr(auto_relist ? 1 : 0, []),
+					new Constr(1, []), // None variant for renter_pkh
+					new Constr(1, []), // None variant for deadline
+					nft_policy,
+					nft_name
 				]);
 
-				// Build transaction
-				const tx = new Transaction({ initiator: wallet })
-					.sendAssets(
-						{
-							address: scriptAddress,
-							datum: { value: datum, inline: true }
-						},
-						[
-							{
-								unit: nft_policy + nft_name,
-								quantity: '1'
-							}
-						]
-					);
+				const assets = {
+					[`${nft_policy}${nft_name}`]: 1n,
+					lovelace: 2000000n
+				};
 
-				const unsignedTx = await tx.build();
-				const signedTx = await wallet.signTx(unsignedTx);
-				const txHash = await wallet.submitTx(signedTx);
+				console.log('Building list transaction...');
+				const tx = await lucid.newTx()
+					.payToContract(scriptAddress, { inline: datum }, assets)
+					.complete();
+				console.log('List transaction built successfully');
+
+				const signedTx = await tx.sign().complete();
+				const txHash = await signedTx.submit();
 
 				document.getElementById('listStatus').textContent = `Rental listed! Tx: ${txHash}`;
-				setTimeout(populateRentalPicker, 3000);
+				await populateRentalPicker();
 			} catch (error) {
 				console.error('List error:', error);
 				document.getElementById('listStatus').textContent = `Error: ${error.message}`;
 			}
 		});
 
-		// Rent NFT
 		document.getElementById('rentButton').addEventListener('click', async () => {
 			console.log('=== RENT BUTTON CLICKED ===');
 			try {
 				const days = parseInt(document.getElementById('days').value);
 				const selectedRental = document.getElementById('rental_picker').value;
-				const selectedOption = document.querySelector(`#rental_picker option[value="${selectedRental}"]`);
 				
 				if (!selectedRental || days <= 0) {
 					throw new Error('Invalid rental selection or days');
 				}
 
-				const utxo = JSON.parse(selectedOption.dataset.utxo);
-				console.log('Selected UTXO:', utxo);
+				const [txHash, outputIndex] = selectedRental.split('#');
 				
-				// For now, we'll need to manually construct the datum
-				// In production, use proper CBOR parsing
-				const renterPkh = resolvePaymentKeyHash(walletAddress);
-				const currentTime = Date.now();
-				const deadline = currentTime + (days * 86400000); // milliseconds
+				const utxos = await lucid.utxosAt(scriptAddress);
+				const escrowUtxo = utxos.find(utxo => utxo.txHash === txHash && utxo.outputIndex === parseInt(outputIndex));
+				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
-				// Hardcoded values for testing - in production, parse from datum
-				const lenderPkh = 'b62dfb058c502b5b2519f566732774d8c55764614571334deecf0ac7';
-				const daily_fee = 1000000;
-				const min_days = 1;
-				const max_days = 30;
-				const auto_relist = true;
-				const nftAsset = utxo.output.amount.find(a => a.unit !== 'lovelace');
-				const nft_policy = nftAsset.unit.slice(0, 56);
-				const nft_name = nftAsset.unit.slice(56);
+				if (!escrowUtxo.datum) throw new Error('Escrow UTxO has no inline datum');
 
-				// Build updated datum
-				const updatedDatum = mConStr0([
-					lenderPkh, // lender_pkh
-					daily_fee, // daily_fee
-					min_days, // min_days
-					max_days, // max_days
-					auto_relist ? mConStr1([]) : mConStr0([]), // auto_relist
-					mConStr0([renterPkh]), // renter_pkh: Some
-					mConStr0([deadline]), // deadline: Some
-					nft_policy, // nft_policy
-					nft_name // nft_name
+				// Read datum from UTxO
+				const rawDatum = Data.from(escrowUtxo.datum);
+				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
+				const datum = rawDatum;
+
+				// Validate days
+				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
+				if (datum[5].index !== 1) throw new Error('Already rented');
+
+				// Get renter PKH
+				const renterAddress = await lucid.wallet.address();
+				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
+
+				// Calculate deadline using POSIX seconds
+				const currentTimeSeconds = Math.floor(Date.now() / 1000);
+				const deadlineSeconds = currentTimeSeconds + (days * 86400);
+				const deadline = deadlineSeconds * 1000; // Convert back to milliseconds for the script
+
+				// Updated datum
+				const autoRelistValue = datum[4].index || 0;
+				const updatedDatum = Data.to([
+					datum[0], // lender_pkh
+					datum[1], // daily_fee
+					datum[2], // min_days
+					datum[3], // max_days
+					new Constr(autoRelistValue, []), // auto_relist
+					new Constr(0, [renterPkh]), // renter_pkh Some variant
+					new Constr(0, [BigInt(deadline)]), // deadline Some variant in milliseconds
+					datum[7], // nft_policy
+					datum[8]  // nft_name
 				]);
 
-				// Build redeemer
-				const redeemer = mConStr0([days]); // Rent variant
+				// Redeemer for Rent
+				const redeemer = Data.to(new Constr(0, [BigInt(days)]));
 
-				// Calculate fee
-				const fee = daily_fee * days;
-
-				// Build transaction
-				const tx = new Transaction({ initiator: wallet });
-				
-				// Get current slot for validity interval
-				const currentSlot = resolveSlotNo('preprod');
-				tx.setTimeToStart(currentSlot);
-				tx.setTimeToExpire(currentSlot + 600);
-				
-				// Add required signers
-				tx.setRequiredSigners([walletAddress]);
-				
-				// Spend from script
-				tx.redeemValue({
-					value: utxo,
-					script: {
-						code: scriptCBOR,
-						version: 'V2'
-					},
-					datum: utxo.output.plutusData,
-					redeemer: redeemer
-				});
-				
-				// Pay fee to lender - need to construct address from PKH
-				// For now, using placeholder
-				tx.sendLovelace(walletAddress, fee); // Should send to lender
-				
-				// Return NFT to script with updated datum
-				tx.sendAssets(
-					{
-						address: scriptAddress,
-						datum: { value: updatedDatum, inline: true }
-					},
-					[
-						{
-							unit: nftAsset.unit,
-							quantity: '1'
-						}
-					]
+				// Payment to lender
+				const fee = datum[1] * BigInt(days);
+				const lenderAddress = lucid.utils.credentialToAddress(
+					{ type: 'Key', hash: datum[0] }
 				);
 
-				const unsignedTx = await tx.build();
-				const signedTx = await wallet.signTx(unsignedTx);
-				const txHashResult = await wallet.submitTx(signedTx);
+				// Calculate ADA to return
+				const adaInEscrow = escrowUtxo.assets.lovelace || 0n;
+				const adaToReturn = adaInEscrow > fee ? adaInEscrow - fee : 2000000n;
+
+				// Build assets to return
+				const assetsToReturn = { ...escrowUtxo.assets };
+				assetsToReturn.lovelace = adaToReturn;
+
+				console.log('Building transaction...');
+				
+				// Build transaction with explicit validity interval workaround
+				const tx = lucid.newTx();
+				
+				// Try to build without validity interval first
+				tx.collectFrom([escrowUtxo], redeemer);
+				tx.attachSpendingValidator(validator);
+				tx.payToAddress(lenderAddress, { lovelace: fee });
+				tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+				tx.addSigner(renterAddress);
+				
+				// Try different approaches for validity interval
+				try {
+					// Approach 1: Use very specific slot calculation
+					const slot = Math.floor((Date.now() - 1596491091000) / 1000);
+					tx.validFrom(slot - 100);
+					tx.validTo(slot + 500);
+					console.log('Set validity interval with calculated slots');
+				} catch (e) {
+					console.warn('Could not set validity interval:', e);
+					// Continue without it - script will fail but we can see the error
+				}
+				
+				const completedTx = await tx.complete();
+				console.log('Transaction built successfully');
+				
+				const signedTx = await completedTx.sign().complete();
+				const txHashResult = await signedTx.submit();
 
 				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
-				setTimeout(populateRentalPicker, 3000);
+				await populateRentalPicker();
 			} catch (error) {
 				console.error('=== RENT ERROR ===');
 				console.error('Full error:', error);
