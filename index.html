@@ -310,12 +310,20 @@
 					// Continue anyway for testing
 				}
 
-				// Calculate deadline (current time in milliseconds + days * milliseconds per day)
-				console.log('Fetching current time...');
-				const currentTimeMs = Date.now(); // JavaScript timestamp in milliseconds
+				// Calculate deadline using Cardano slot time
+				console.log('Calculating deadline...');
+				
+				// Get current slot and convert to milliseconds
+				const currentSlot = lucid.utils.unixTimeToSlot(Date.now());
+				const currentTimeMs = lucid.utils.slotToUnixTime(currentSlot);
+				
+				// Add days in milliseconds
 				const deadline = currentTimeMs + (days * 86400000); // 86400000 milliseconds per day
+				
+				console.log('Current slot:', currentSlot);
 				console.log('Current time (ms):', currentTimeMs);
-				console.log('Deadline calculated (ms):', deadline);
+				console.log('Deadline (ms):', deadline);
+				console.log('Deadline as BigInt:', BigInt(deadline));
 
 				console.log('Creating updated datum...');
 				
@@ -401,7 +409,7 @@
 				console.log('Adding script input with redeemer:', redeemer);
 				txBuilder.collectFrom([escrowUtxo], redeemer);
 				
-				console.log('Attaching PlutusV3 validator, script length:', validator.script.length);
+				console.log('Attaching PlutusV2 validator, script length:', validator.script.length);
 				txBuilder.attachSpendingValidator(validator);
 				
 				// Add outputs
@@ -412,22 +420,8 @@
 				txBuilder.addSigner(renterAddress);
 				console.log('Added signer:', renterAddress);
 				
-				// Add validity interval - REQUIRED by the script
-				// The script checks lower and upper bounds
-				try {
-					const currentSlot = lucid.utils.unixTimeToSlot(Date.now());
-					const fromSlot = currentSlot;
-					const toSlot = currentSlot + 600; // ~10 minutes
-					txBuilder.validFrom(fromSlot);
-					txBuilder.validTo(toSlot);
-					console.log('Set validity interval from slot', fromSlot, 'to', toSlot);
-				} catch (e) {
-					console.error('Error setting validity interval:', e);
-					throw new Error('Validity interval is required by the script');
-				}
-				
-				// Complete the transaction
-				console.log('Completing transaction...');
+				// Complete the transaction WITHOUT validity interval first
+				console.log('Completing transaction without validity interval...');
 				try {
 					const tx = await txBuilder.complete();
 					console.log('Transaction completed successfully');
