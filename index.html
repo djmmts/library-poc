@@ -70,14 +70,11 @@
 		async function initProvider() {
 			provider = new KoiosProvider('preprod');
 			
-			// Calculate script address from CBOR
-			const script = {
-				code: scriptCBOR,
-				version: 'V2' // Mesh might handle V3 scripts as V2
-			};
-			
-			scriptAddress = resolvePlutusScriptAddress(script, 0); // 0 for preprod
+			// Use the same script address we already have
+			// This was derived from the script CBOR and won't change
+			scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
 			console.log('Script address:', scriptAddress);
+			console.log('Script hash: b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36');
 		}
 
 		// Function to hex-decode asset name to readable string if possible
