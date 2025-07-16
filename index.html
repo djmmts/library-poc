@@ -4,8 +4,6 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Cardano NFT Book Rental DApp</title>
-	<!-- Import Mesh SDK -->
-	<script src="https://unpkg.com/@meshsdk/core@1.6.1/dist/index.js"></script>
 </head>
 <body>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
@@ -47,254 +45,243 @@
 	<button id="rentButton" disabled>Rent Book</button>
 	<p id="txStatus"></p>
 
-	<script>
+	<!-- Following Mesh docs, use ESM module -->
+	<script type="module">
+		import { BlockfrostProvider, MeshWallet, Transaction, resolvePaymentKeyHash, conStr0, conStr1 } from 'https://cdn.jsdelivr.net/npm/@meshsdk/core@1.6.1/+esm';
+
 		// Script CBOR - add your script here
-		const scriptCBOR = '59089301010029800aba2aba1aba0aab9faab9eaab9dab9a488888896600264653001300800198041804800cdc3a400530080024888966002600460106ea800e2653001300d00198069807000cdc3a400091119912cc004c00c00626464b300130150028024590121bad3013001300f37540151598009804000c4c8c966002602a0050048b2024375a6026002601e6ea802a2b30013370e9002000c566002601e6ea802a005164041164034806900d0acc004c004c030dd50014660026020601a6ea800a4602260246024602460246024602460240032301130120019180898091809180918091809180918091809000cdd2a4000911114c004c966002601860246ea800626eb4c058c04cdd5000c59011180a98091baa301530123754600860246ea802a64b30013007301237540031375c602c60266ea80062c8088c96600200314c0103d87a8000898011980a980b000a5eb810141bac3002301237540153259800980398091baa0018980b18099baa0018b202232330010013758602c60266ea802c896600200314c103d87a80008992cc004cdd7980c180a9baa00100b898021980b800a5eb8226600600660320048098c05c0050154888c966002601e602a6ea80062900044dd6980c980b1baa001405064b3001300f3015375400314c0103d87a8000899198008009bab301a3017375400444b30010018a6103d87a8000899192cc004cdc8803000c56600266e3c0180062601266038603400497ae08a60103d87a80004061133004004301e00340606eb8c060004c06c005019202832330010010042259800800c5300103d87a8000899192cc004cdc8803000c56600266e3c0180062601066036603200497ae08a60103d87a8000405d133004004301d003405c6eb8c05c004c0680050182444464b3001301098009bab3008301737546010602e6ea800e6eb8c024c05cdd50054dd71803980b9baa00a4009198009180d980e180e000c8c06cc070c070c07000644646600200200644b30010018a508acc004c00cc0780062946266004004603e00280c901c48c06cc070c070c070c070006460366038603860386038603860380032301b301c301c301c301c301c001980b1baa0129ba548011222222223259800980a001c4c966002b3001301530203754600a60426ea80522942294501f456600266e24dd6980518109baa0140018acc004cdc48009bad30093021375402915980099b88480000062b30013002337046eb4c048c084dd500a000c4cc020dd6180518109baa01925980099baf30253022375400201915980099baf300b30223754002600866048602266048604a60446ea8054cc090c04cc088dd500a99812180598111baa01533024300a3022375402a660493001301b30213754601060446ea805698103d87a8000a60103d87980004080660486022660486ea403d2f5c0660486022660486ea0cdc000819b8200248203c2c9492f5c066048602860446ea8054cc090c048c088dd500aa5eb812f5c11301b98009bab301330223754003375c602860446ea80566eb8c048c088dd500aa01a8a50408114a08102294101f4528203e8a50407d14a080fa294101f1bad302330203754037159800980c801c4cc896600266e3cc966002602e60446ea800626eb8c098c08cdd5000c59021180318111baa01500f8acc004cdc4192cc004c070c088dd5000c4dd6981318119baa0018b2042302530223754602660446ea8c050c088dd500d000c56600266e2120000028acc004c00ccdc11bad30133022375402a0051330093758601660446ea806896600266ebcc098c08cdd5000806c56600266ebcc030c08cdd5000980299812980919812981318119baa0163302530143023375402c6604a601860466ea8058cc094c02cc08cdd500b19812cc004c070c088dd5180498119baa016a60103d87a8000a60103d879800040846604a600e60466ea8058cc094c048cc094dd419b8000233704006904078592925eb80cc094c054c08cdd500b19812980998119baa0164bd7025eb822603930013756602860466ea80066eb8c054c08cdd500b4dd7180998119baa016403914a0810a2941021452820408a50408114a0810229410201bad30233020375403664b30013015302037540031375a604860426ea80062c80f8c014c080dd5009c56600266e3c034dd7181198101baa0138acc005660026032603e6ea8c010c080dd5009c528c4cdc4192cc004c054c080dd5000c4dd6981218109baa0018b203e30053020375402601c80f22b300159800980c980f9baa30043020375402719800980c980f9baa3006302037540274a14a280f2294501e45660026032603e6ea8c018c080dd5009c4cc01cdd6180498101baa01825980099baf30243021375400201715980099baf300a30213754002600666046602066046604860426ea8050cc08cc048c084dd500a19811980518109baa01433023300930213754028660473001301a30203754600e60426ea8052980103d87a8000a60103d8798000407c6604698103d87a8000330234c103d87a80003302330133021375402866046602260426ea80512f5c097ae08980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e8a50407d1330073758601260406ea806096600264b300130163021375400313371e6eb8c094c088dd50009bae30253022375402b14a08100c090c084dd5181218109baa0018980d4c004dd5980918109baa0019bae301330213754029375c602260426ea805100c4528203e407914a080f2294101e4528203c407880f08cdc480099198008009bac300a3021375403244b30010018a4001132332259800980c98121baa0028acc004cdc79bae3028302537540046eb8c0a0c094dd500c44cdc0000cc004dd5980b18129baa003a4500a4410040411001408d1001408c604c60466ea8c098c08cdd50009980180198138011812800a046459015180c980b1baa30073016375400445900b18061baa00818049baa0038b200e180400098019baa0088a4d13656400401';
+		const scriptCBOR = 'YOUR_SCRIPT_CBOR_HERE';
 		const scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
 
-		// Wait for Mesh to load
-		window.addEventListener('load', async () => {
-			// Check if Mesh loaded properly
-			if (!window.Mesh) {
-				console.error('Mesh SDK failed to load');
-				document.getElementById('walletStatus').textContent = 'Error: Mesh SDK not loaded';
-				return;
-			}
+		let wallet;
+		let walletAddress;
 
-			const { 
-				BrowserWallet, 
-				Transaction, 
-				BlockfrostProvider,
-				resolvePaymentKeyHash,
-				resolvePlutusScriptAddress,
-				mConStr0,
-				mConStr1,
-				resolveDataHash
-			} = window.Mesh;
+		// Initialize Blockfrost provider as per Mesh docs
+		const blockfrostProvider = new BlockfrostProvider('preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W');
 
-			let wallet;
-			let walletAddress;
-
-			// Initialize Blockfrost provider
-			const blockfrost = new BlockfrostProvider('preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W');
-
-			function hexToString(hex) {
-				try {
-					let str = '';
-					for (let i = 0; i < hex.length; i += 2) {
-						str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-					}
-					return str;
-				} catch (e) {
-					return hex;
+		function hexToString(hex) {
+			try {
+				let str = '';
+				for (let i = 0; i < hex.length; i += 2) {
+					str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
 				}
+				return str;
+			} catch (e) {
+				return hex;
 			}
+		}
 
-			async function populateNftPicker() {
-				const nftPicker = document.getElementById('nft_picker');
-				nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
+		async function populateNftPicker() {
+			const nftPicker = document.getElementById('nft_picker');
+			nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
+			
+			try {
+				const assets = await wallet.getAssets();
 				
-				try {
-					const assets = await wallet.getAssets();
-					
-					assets.forEach(asset => {
-						if (asset.quantity === "1") {
-							const policyId = asset.unit.slice(0, 56);
-							const assetName = asset.unit.slice(56);
-							const name = hexToString(assetName);
+				assets.forEach(asset => {
+					if (asset.quantity === "1") {
+						const policyId = asset.unit.slice(0, 56);
+						const assetName = asset.unit.slice(56);
+						const name = hexToString(assetName);
+						
+						const option = document.createElement('option');
+						option.value = `${policyId}|${assetName}`;
+						option.textContent = `${name} (${policyId.slice(0, 10)}...)`;
+						nftPicker.appendChild(option);
+					}
+				});
+			} catch (e) {
+				console.error('Error populating NFTs:', e);
+			}
+		}
+
+		async function populateRentalPicker() {
+			try {
+				const rentalPicker = document.getElementById('rental_picker');
+				rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
+				
+				const utxos = await blockfrostProvider.fetchAddressUTxOs(scriptAddress);
+				console.log(`Found ${utxos.length} UTxOs at script address`);
+				
+				for (const utxo of utxos) {
+					const hasNft = utxo.output.amount.some(asset => asset.unit !== 'lovelace');
+					if (hasNft && utxo.output.plutusData) {
+						try {
+							const nftAsset = utxo.output.amount.find(asset => asset.unit !== 'lovelace');
+							const nftName = hexToString(nftAsset.unit.slice(56));
 							
 							const option = document.createElement('option');
-							option.value = `${policyId}|${assetName}`;
-							option.textContent = `${name} (${policyId.slice(0, 10)}...)`;
-							nftPicker.appendChild(option);
-						}
-					});
-				} catch (e) {
-					console.error('Error populating NFTs:', e);
-				}
-			}
-
-			async function populateRentalPicker() {
-				try {
-					const rentalPicker = document.getElementById('rental_picker');
-					rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
-					
-					const utxos = await blockfrost.fetchAddressUTxOs(scriptAddress);
-					console.log(`Found ${utxos.length} UTxOs at script address`);
-					
-					for (const utxo of utxos) {
-						const hasNft = utxo.output.amount.some(asset => asset.unit !== 'lovelace');
-						if (hasNft && utxo.output.inlineDatum) {
-							try {
-								const nftAsset = utxo.output.amount.find(asset => asset.unit !== 'lovelace');
-								const nftName = hexToString(nftAsset.unit.slice(56));
-								
-								const option = document.createElement('option');
-								option.value = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
-								option.textContent = `NFT: ${nftName} | Available for rent`;
-								option.dataset.utxo = JSON.stringify(utxo);
-								rentalPicker.appendChild(option);
-							} catch (e) {
-								console.error('Error parsing rental:', e);
-							}
+							option.value = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
+							option.textContent = `NFT: ${nftName} | Available for rent`;
+							option.dataset.utxo = JSON.stringify(utxo);
+							rentalPicker.appendChild(option);
+						} catch (e) {
+							console.error('Error parsing rental:', e);
 						}
 					}
-				} catch (e) {
-					console.error('Error in populateRentalPicker:', e);
 				}
+			} catch (e) {
+				console.error('Error in populateRentalPicker:', e);
 			}
+		}
 
-			// Connect wallet
-			document.getElementById('connectWallet').addEventListener('click', async () => {
-				try {
-					// Get available wallets
-					const wallets = await BrowserWallet.getAvailableWallets();
-					console.log('Available wallets:', wallets);
-					
-					// Enable Eternl (or any available wallet)
-					wallet = await BrowserWallet.enable('eternl');
-					
-					const networkId = await wallet.getNetworkId();
-					if (networkId !== 0) {
-						document.getElementById('walletStatus').textContent = 'Please switch to Preprod network!';
-						return;
-					}
-					
-					walletAddress = await wallet.getChangeAddress();
-					document.getElementById('walletStatus').textContent = 'Wallet connected!';
-					document.getElementById('listButton').disabled = false;
-					document.getElementById('rentButton').disabled = false;
-					
-					await populateNftPicker();
-					await populateRentalPicker();
-				} catch (error) {
-					console.error('Wallet connection error:', error);
-					document.getElementById('walletStatus').textContent = 'Failed to connect wallet: ' + error.message;
+		// Connect wallet button
+		document.getElementById('connectWallet').addEventListener('click', async () => {
+			try {
+				// Get available wallets as per Mesh docs
+				const wallets = MeshWallet.getInstalledWallets();
+				console.log('Available wallets:', wallets);
+				
+				// Connect to Eternl
+				wallet = await MeshWallet.enable('eternl');
+				
+				const networkId = await wallet.getNetworkId();
+				if (networkId !== 0) {
+					document.getElementById('walletStatus').textContent = 'Please switch to Preprod network!';
+					return;
 				}
-			});
+				
+				walletAddress = await wallet.getChangeAddress();
+				document.getElementById('walletStatus').textContent = 'Wallet connected!';
+				document.getElementById('listButton').disabled = false;
+				document.getElementById('rentButton').disabled = false;
+				
+				await populateNftPicker();
+				await populateRentalPicker();
+			} catch (error) {
+				console.error('Wallet connection error:', error);
+				document.getElementById('walletStatus').textContent = 'Failed to connect wallet: ' + error.message;
+			}
+		});
 
-			// List NFT
-			document.getElementById('listButton').addEventListener('click', async () => {
-				try {
-					console.log('=== LIST BUTTON CLICKED ===');
-					const daily_fee = parseInt(document.getElementById('daily_fee').value);
-					const min_days = parseInt(document.getElementById('min_days').value);
-					const max_days = parseInt(document.getElementById('max_days').value);
-					const auto_relist = document.getElementById('auto_relist').checked;
-					const selectedNft = document.getElementById('nft_picker').value;
+		// List NFT button
+		document.getElementById('listButton').addEventListener('click', async () => {
+			try {
+				console.log('=== LIST BUTTON CLICKED ===');
+				const daily_fee = parseInt(document.getElementById('daily_fee').value);
+				const min_days = parseInt(document.getElementById('min_days').value);
+				const max_days = parseInt(document.getElementById('max_days').value);
+				const auto_relist = document.getElementById('auto_relist').checked;
+				const selectedNft = document.getElementById('nft_picker').value;
 
-					if (!selectedNft) throw new Error('Please select an NFT');
-					
-					const [nft_policy, nft_name] = selectedNft.split('|');
-					const lenderPkh = resolvePaymentKeyHash(walletAddress);
+				if (!selectedNft) throw new Error('Please select an NFT');
+				
+				const [nft_policy, nft_name] = selectedNft.split('|');
+				const lenderPkh = resolvePaymentKeyHash(walletAddress);
 
-					// Build datum using Mesh constructors
-					const datum = mConStr0([
-						lenderPkh,
-						daily_fee,
-						min_days,
-						max_days,
-						auto_relist ? mConStr1([]) : mConStr0([]),
-						mConStr1([]), // None for renter_pkh
-						mConStr1([]), // None for deadline
-						nft_policy,
-						nft_name
-					]);
+				// Build datum using Mesh data constructors
+				const datum = conStr0([
+					lenderPkh,
+					daily_fee,
+					min_days,
+					max_days,
+					auto_relist ? conStr1([]) : conStr0([]),
+					conStr1([]), // None for renter_pkh
+					conStr1([]), // None for deadline
+					nft_policy,
+					nft_name
+				]);
 
-					// Build transaction
-					const tx = new Transaction({ initiator: wallet })
-						.sendAssets(
-							scriptAddress,
-							[{ unit: nft_policy + nft_name, quantity: '1' }],
-							{ datum }
-						);
-
-					const unsignedTx = await tx.build();
-					const signedTx = await wallet.signTx(unsignedTx);
-					const txHash = await wallet.submitTx(signedTx);
-
-					document.getElementById('listStatus').textContent = `Listed! Tx: ${txHash}`;
-					setTimeout(populateRentalPicker, 3000);
-				} catch (error) {
-					console.error('List error:', error);
-					document.getElementById('listStatus').textContent = `Error: ${error.message}`;
-				}
-			});
-
-			// Rent NFT
-			document.getElementById('rentButton').addEventListener('click', async () => {
-				console.log('=== RENT BUTTON CLICKED ===');
-				try {
-					const days = parseInt(document.getElementById('days').value);
-					const selectedRental = document.getElementById('rental_picker').value;
-					const selectedOption = document.querySelector(`#rental_picker option[value="${selectedRental}"]`);
-					
-					if (!selectedRental || days <= 0) throw new Error('Invalid selection');
-
-					const utxo = JSON.parse(selectedOption.dataset.utxo);
-					const renterPkh = resolvePaymentKeyHash(walletAddress);
-					
-					// Calculate deadline in milliseconds
-					const deadline = Date.now() + (days * 86400000);
-
-					// For demo, using hardcoded values - in production, parse from datum
-					const lenderPkh = 'b62dfb058c502b5b2519f566732774d8c55764614571334deecf0ac7';
-					const daily_fee = 1000000;
-					const nftAsset = utxo.output.amount.find(a => a.unit !== 'lovelace');
-
-					// Build updated datum
-					const updatedDatum = mConStr0([
-						lenderPkh,
-						daily_fee,
-						1, // min_days
-						30, // max_days
-						mConStr1([]), // auto_relist true
-						mConStr0([renterPkh]), // Some(renter)
-						mConStr0([deadline.toString()]), // Some(deadline)
-						nftAsset.unit.slice(0, 56), // policy
-						nftAsset.unit.slice(56) // name
-					]);
-
-					// Build redeemer
-					const redeemer = mConStr0([days]);
-
-					// Build transaction
-					const tx = new Transaction({ initiator: wallet });
-					
-					// THIS IS THE KEY PART - Set time bounds for Plutus V3
-					tx.setTimeLimit(Date.now() + 600000); // 10 minutes from now
-					
-					// Add collateral
-					const collateral = await wallet.getCollateral();
-					tx.setCollateral(collateral);
-					
-					// Redeem from script
-					tx.redeemValue({
-						value: utxo,
-						script: { code: scriptCBOR, version: 'PlutusV2' },
-						datum: utxo.output.inlineDatum,
-						redeemer: { data: redeemer }
-					})
-					.sendLovelace(lenderAddress, (daily_fee * days).toString()) // Pay lender
+				// Build transaction with Mesh Transaction builder
+				const tx = new Transaction({ initiator: wallet, parameters: blockfrostProvider })
 					.sendAssets(
-						scriptAddress,
-						[{ unit: nftAsset.unit, quantity: '1' }],
-						{ datum: updatedDatum }
-					)
-					.setRequiredSigners([walletAddress]);
+						{
+							address: scriptAddress,
+							datum: { value: datum }
+						},
+						[{ unit: nft_policy + nft_name, quantity: '1' }]
+					);
 
-					const unsignedTx = await tx.build();
-					const signedTx = await wallet.signTx(unsignedTx);
-					const txHash = await wallet.submitTx(signedTx);
+				const unsignedTx = await tx.build();
+				const signedTx = await wallet.signTx(unsignedTx);
+				const txHash = await wallet.submitTx(signedTx);
 
-					document.getElementById('txStatus').textContent = `Rented! Tx: ${txHash}`;
-					setTimeout(populateRentalPicker, 3000);
-				} catch (error) {
-					console.error('=== RENT ERROR ===');
-					console.error('Full error:', error);
-					document.getElementById('txStatus').textContent = `Error: ${error.message}`;
-				}
-			});
+				document.getElementById('listStatus').textContent = `Listed! Tx: ${txHash}`;
+				setTimeout(populateRentalPicker, 3000);
+			} catch (error) {
+				console.error('List error:', error);
+				document.getElementById('listStatus').textContent = `Error: ${error.message}`;
+			}
+		});
+
+		// Rent NFT button
+		document.getElementById('rentButton').addEventListener('click', async () => {
+			console.log('=== RENT BUTTON CLICKED ===');
+			try {
+				const days = parseInt(document.getElementById('days').value);
+				const selectedRental = document.getElementById('rental_picker').value;
+				const selectedOption = document.querySelector(`#rental_picker option[value="${selectedRental}"]`);
+				
+				if (!selectedRental || days <= 0) throw new Error('Invalid selection');
+
+				const utxo = JSON.parse(selectedOption.dataset.utxo);
+				const renterPkh = resolvePaymentKeyHash(walletAddress);
+				
+				// Calculate deadline in milliseconds
+				const deadline = Date.now() + (days * 86400000);
+
+				// For demo, using hardcoded values - in production, parse from datum
+				const lenderPkh = 'b62dfb058c502b5b2519f566732774d8c55764614571334deecf0ac7';
+				const lenderAddress = 'addr_test1vzmzm7c933gzkke9r86kvue8wnvv24myv9zhzv6dam8s43ca33fq3';
+				const daily_fee = 1000000;
+				const nftAsset = utxo.output.amount.find(a => a.unit !== 'lovelace');
+
+				// Build updated datum
+				const updatedDatum = conStr0([
+					lenderPkh,
+					daily_fee,
+					1, // min_days
+					30, // max_days
+					conStr1([]), // auto_relist true
+					conStr0([renterPkh]), // Some(renter)
+					conStr0([deadline]), // Some(deadline)
+					nftAsset.unit.slice(0, 56), // policy
+					nftAsset.unit.slice(56) // name
+				]);
+
+				// Build redeemer
+				const redeemer = conStr0([days]);
+
+				// Build transaction with proper time validity
+				const tx = new Transaction({ initiator: wallet, parameters: blockfrostProvider });
+				
+				// Set validity interval - this is key for Aiken scripts
+				const slot = await blockfrostProvider.fetchProtocolParameters().then(p => p.slot);
+				tx.setTimeToStart(slot);
+				tx.setTimeToExpire(slot + 600); // 10 minutes
+				
+				// Add required signers
+				tx.setRequiredSigners([walletAddress]);
+				
+				// Redeem from script
+				tx.redeemValue(
+					scriptCBOR,
+					utxo,
+					{
+						datum: utxo.output.plutusData,
+						redeemer: { data: redeemer }
+					}
+				)
+				.sendLovelace(lenderAddress, (daily_fee * days).toString())
+				.sendAssets(
+					{
+						address: scriptAddress,
+						datum: { value: updatedDatum }
+					},
+					[{ unit: nftAsset.unit, quantity: '1' }]
+				);
+
+				const unsignedTx = await tx.build();
+				const signedTx = await wallet.signTx(unsignedTx);
+				const txHash = await wallet.submitTx(signedTx);
+
+				document.getElementById('txStatus').textContent = `Rented! Tx: ${txHash}`;
+				setTimeout(populateRentalPicker, 3000);
+			} catch (error) {
+				console.error('=== RENT ERROR ===');
+				console.error('Full error:', error);
+				document.getElementById('txStatus').textContent = `Error: ${error.message}`;
+			}
 		});
 	</script>
 </body>
