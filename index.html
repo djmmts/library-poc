@@ -326,8 +326,6 @@
 
 				// Payment to lender  
 				const fee = datum[1] * BigInt(days);
-				// Get network ID for preprod
-				const network = 0; // 0 for testnet, 1 for mainnet
 				const lenderAddress = lucid.utils.credentialToAddress(
 					{ type: 'Key', hash: datum[0] }
 				);
@@ -349,34 +347,29 @@
 				console.log('Assets to return:', assetsToReturn);
 				console.log('Attempting to build transaction...');
 
-				// Try building the transaction step by step
-				try {
-					const txBuilder = lucid.newTx();
-					
-					// Add the input with redeemer
-					txBuilder.collectFrom([escrowUtxo], redeemer);
-					
-					// Don't attach any validator - let Lucid resolve it from the script address
-					// Since the listing worked without attaching a validator, the rent should too
-					
-					// Add outputs
-					txBuilder.payToAddress(lenderAddress, { lovelace: fee });
-					txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-					
-					// Complete the transaction
-					const tx = await txBuilder.complete();
-					
-					console.log('Transaction built successfully');
+				// Build transaction
+				const txBuilder = lucid.newTx();
+				
+				// Add the input with redeemer
+				txBuilder.collectFrom([escrowUtxo], redeemer);
+				
+				// Don't attach any validator - let Lucid resolve it from the script address
+				// Since the listing worked without attaching a validator, the rent should too
+				
+				// Add outputs
+				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
+				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+				
+				// Complete the transaction
+				const tx = await txBuilder.complete();
+				
+				console.log('Transaction built successfully');
 
-					const signedTx = await tx.sign().complete();
-					const txHashResult = await signedTx.submit();
+				const signedTx = await tx.sign().complete();
+				const txHashResult = await signedTx.submit();
 
-					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
-					await populateRentalPicker(); // Refresh rentals after renting
-				} catch (txError) {
-					console.error('Transaction building error:', txError);
-					throw txError;
-				}
+				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
+				await populateRentalPicker(); // Refresh rentals after renting
 			} catch (error) {
 				console.error('=== RENT ERROR ===');
 				console.error('Full error:', error);
