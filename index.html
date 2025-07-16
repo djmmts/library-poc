@@ -109,27 +109,50 @@
 			rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
 			
 			const utxos = await lucid.utxosAt(scriptAddress);
+			console.log(`Found ${utxos.length} UTxOs at script address`);
+			
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					if (!utxo.datum) continue; // Skip UTxOs without inline datum
+					if (!utxo.datum) {
+						console.log('Skipping UTxO without inline datum');
+						continue;
+					}
 					try {
 						const rawDatum = Data.from(utxo.datum);
-						if (!rawDatum.list) {
-							console.log('Skipping non-list datum');
+						console.log('Raw datum structure:', rawDatum);
+						
+						// Check if it's an array/list structure
+						if (!Array.isArray(rawDatum)) {
+							console.log('Skipping non-array datum');
 							continue;
 						}
-						const datum = rawDatum.list;
+						
+						const datum = rawDatum;
+						
+						// Validate datum has expected structure (9 elements)
+						if (datum.length !== 9) {
+							console.log(`Skipping datum with wrong length: ${datum.length}`);
+							continue;
+						}
+						
+						// Check if renter_pkh (index 5) indicates not rented
 						const renter_pkh = datum[5];
-						if (renter_pkh.constructor === 1) { // Only show available (not rented)
-							const name = hexToString(datum[8].bytes);
+						if (renter_pkh && renter_pkh.constructor === 1) { // Only show available (not rented)
+							const nft_name = datum[8] && datum[8].bytes ? hexToString(datum[8].bytes) : 'Unknown';
+							const daily_fee = datum[1] && datum[1].int ? Number(datum[1].int) : 0;
+							const min_days = datum[2] && datum[2].int ? datum[2].int : 0;
+							const max_days = datum[3] && datum[3].int ? datum[3].int : 0;
+							
 							const option = document.createElement('option');
 							option.value = utxo.txHash + '#' + utxo.outputIndex;
-							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1].int) / 1000000} ADA/day | Min/Max: ${datum[2].int}-${datum[3].int} days`;
+							option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
 							rentalPicker.appendChild(option);
+						} else {
+							console.log('Skipping rented NFT');
 						}
 					} catch (e) {
 						console.error('Error parsing datum:', e);
-						continue; // Skip malformed datums
+						continue;
 					}
 				}
 			}
@@ -164,19 +187,18 @@
 				const lenderAddress = await lucid.wallet.address();
 				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
-				const datum = Data.to({
-					list: [
-						lenderPkh,
-						BigInt(daily_fee),
-						BigInt(min_days),
-						BigInt(max_days),
-						{ constructor: auto_relist ? 1 : 0, fields: [] },
-						{ constructor: 1, fields: [] },
-						{ constructor: 1, fields: [] },
-						nft_policy,
-						nft_name
-					]
-				});
+				// Create datum as array directly
+				const datum = Data.to([
+					lenderPkh,
+					BigInt(daily_fee),
+					BigInt(min_days),
+					BigInt(max_days),
+					{ constructor: auto_relist ? 1 : 0, fields: [] },
+					{ constructor: 1, fields: [] },
+					{ constructor: 1, fields: [] },
+					nft_policy,
+					nft_name
+				]);
 
 				const assets = {
 					[`${nft_policy}${nft_name}`]: 1n,
@@ -211,8 +233,8 @@
 
 				// Read datum from UTxO
 				const rawDatum = Data.from(escrowUtxo.datum);
-				if (!rawDatum.list) throw new Error('Invalid datum format: not a list');
-				const datum = rawDatum.list;
+				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
+				const datum = rawDatum;
 
 				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
 				if (datum[5].constructor !== 1) throw new Error('Already rented');
@@ -230,20 +252,18 @@
 
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
-				// Updated datum
-				const updatedDatum = Data.to({
-					list: [
-						datum[0],
-						datum[1],
-						datum[2],
-						datum[3],
-						datum[4],
-						{ constructor: 0, fields: [renterPkh] },
-						{ constructor: 0, fields: [BigInt(deadline)] },
-						datum[7],
-						datum[8]
-					]
-				});
+				// Updated datum as array
+				const updatedDatum = Data.to([
+					datum[0],
+					datum[1],
+					datum[2],
+					datum[3],
+					datum[4],
+					{ constructor: 0, fields: [renterPkh] },
+					{ constructor: 0, fields: [BigInt(deadline)] },
+					datum[7],
+					datum[8]
+				]);
 
 				// Redeemer for Rent
 				const redeemer = Data.to({
