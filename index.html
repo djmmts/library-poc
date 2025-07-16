@@ -7,9 +7,9 @@
 </head>
 <body>
 	<h1>Rent a Book NFT on Cardano Preprod</h1>
-	<p>Connect your wallet on Preprod network.</p>
+	<p>Connect your Eternl wallet on Preprod network.</p>
 	
-	<button id="connectWallet">Connect Wallet</button>
+	<button id="connectWallet">Connect Eternl Wallet</button>
 	<p id="walletStatus"></p>
 
 	<h2>List Rental Offer</h2>
@@ -45,96 +45,116 @@
 	<button id="rentButton" disabled>Rent Book</button>
 	<p id="txStatus"></p>
 
+	<!-- Alternative approach: Use a transaction building service -->
+	<div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
+		<h3>Alternative: Build Transaction Externally</h3>
+		<p>Due to library limitations with Plutus V3 validity intervals, you can:</p>
+		<ol>
+			<li>Use cardano-cli to build the transaction</li>
+			<li>Use the command below with your parameters</li>
+			<li>Sign the resulting transaction with your wallet</li>
+		</ol>
+		<pre id="cliCommand" style="background: #f0f0f0; padding: 10px; overflow-x: auto;"></pre>
+		<button id="copyCommand">Copy Command</button>
+	</div>
+
 	<script type="module">
-		// Import Cardano JS SDK modules
-		import { 
-			Cardano,
-			TxBuilder,
-			PlutusData,
-			PlutusScript
-		} from 'https://cdn.jsdelivr.net/npm/@cardano-sdk/core@0.35.0/+esm';
-		
-		import {
-			BlockfrostCardanoNetworkInfoProvider,
-			BlockfrostUtxoProvider
-		} from 'https://cdn.jsdelivr.net/npm/@cardano-sdk/blockfrost@0.35.0/+esm';
+		import { Blockfrost, Lucid, Data, Constr, fromHex, toHex } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		// Script configuration
 		const scriptCBOR = 'YOUR_SCRIPT_CBOR_HERE';
 		const scriptAddress = 'addr_test1wzmxf4q03j25mua0wl7mh54adwnd5c97sh9fn92jzep47dsyjc380';
-		const blockfrostProjectId = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W';
+		const scriptHash = 'b664d40f8c954df3af77fdbbd2bd6ba6da60be85ca99955216435f36';
+		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W';
 
-		let wallet;
-		let walletApi;
-		let walletAddress;
-		let txBuilder;
+		let lucid;
+		let validator;
 
-		// Initialize providers
-		const networkInfoProvider = new BlockfrostCardanoNetworkInfoProvider(
-			{ projectId: blockfrostProjectId },
-			{ baseUrl: 'https://cardano-preprod.blockfrost.io/api/v0' }
-		);
-
-		const utxoProvider = new BlockfrostUtxoProvider(
-			{ projectId: blockfrostProjectId },
-			{ baseUrl: 'https://cardano-preprod.blockfrost.io/api/v0' }
-		);
+		async function initLucid() {
+			lucid = await Lucid.new(
+				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
+				'Preprod'
+			);
+			
+			validator = {
+				type: "PlutusV2",
+				script: scriptCBOR
+			};
+			
+			console.log('Using script address:', scriptAddress);
+			console.log('Script hash:', scriptHash);
+		}
 
 		function hexToString(hex) {
 			try {
-				let str = '';
-				for (let i = 0; i < hex.length; i += 2) {
-					str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-				}
-				return str;
+				const bytes = fromHex(hex);
+				return new TextDecoder().decode(bytes);
 			} catch (e) {
 				return hex;
 			}
 		}
 
-		// Populate NFT picker
 		async function populateNftPicker() {
 			const nftPicker = document.getElementById('nft_picker');
 			nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
 			
-			try {
-				const utxos = await walletApi.getUtxos();
-				const assets = new Map();
-				
-				for (const utxoHex of utxos) {
-					// Parse UTXO CBOR to extract assets
-					// This is simplified - in production use proper CBOR parsing
-					console.log('UTXO:', utxoHex);
+			const utxos = await lucid.wallet.getUtxos();
+			const assets = {};
+			utxos.forEach(utxo => {
+				Object.entries(utxo.assets).forEach(([asset, qty]) => {
+					if (asset !== 'lovelace' && qty > 0n) {
+						if (!assets[asset]) assets[asset] = 0n;
+						assets[asset] += qty;
+					}
+				});
+			});
+
+			Object.keys(assets).forEach(asset => {
+				if (assets[asset] === 1n) {
+					const policy = asset.slice(0, 56);
+					const nameHex = asset.slice(56);
+					const name = hexToString(nameHex);
+					const option = document.createElement('option');
+					option.value = `${policy}|${nameHex}`;
+					option.textContent = `Policy: ${policy.slice(0,10)}... Name: ${name}`;
+					nftPicker.appendChild(option);
 				}
-				
-				// For now, add mock data
-				const option = document.createElement('option');
-				option.value = 'mock_policy|mock_name';
-				option.textContent = 'Mock NFT';
-				nftPicker.appendChild(option);
-			} catch (e) {
-				console.error('Error populating NFTs:', e);
-			}
+			});
 		}
 
-		// Populate rental picker
 		async function populateRentalPicker() {
 			try {
 				const rentalPicker = document.getElementById('rental_picker');
 				rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
 				
-				// Query UTXOs at script address
-				const scriptUtxos = await utxoProvider.utxoByAddresses([scriptAddress]);
-				console.log(`Found ${scriptUtxos.length} UTxOs at script address`);
+				const utxos = await lucid.utxosAt(scriptAddress);
+				console.log(`Found ${utxos.length} UTxOs at script address`);
 				
-				for (const utxo of scriptUtxos) {
-					// Check if has NFT and datum
-					if (utxo.datum) {
-						const option = document.createElement('option');
-						option.value = `${utxo.txId}#${utxo.index}`;
-						option.textContent = `NFT Available for rent`;
-						option.dataset.utxo = JSON.stringify(utxo);
-						rentalPicker.appendChild(option);
+				for (const utxo of utxos) {
+					if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
+						if (!utxo.datum) continue;
+						
+						try {
+							const rawDatum = Data.from(utxo.datum);
+							if (!Array.isArray(rawDatum) || rawDatum.length !== 9) continue;
+							
+							const renter_pkh = rawDatum[5];
+							if (renter_pkh && renter_pkh.index === 1) { // Available
+								const nft_name = rawDatum[8] ? hexToString(rawDatum[8]) : 'Unknown';
+								const daily_fee = Number(rawDatum[1]) / 1000000;
+								const min_days = Number(rawDatum[2]);
+								const max_days = Number(rawDatum[3]);
+								
+								const option = document.createElement('option');
+								option.value = utxo.txHash + '#' + utxo.outputIndex;
+								option.textContent = `NFT: ${nft_name} | ${daily_fee} ADA/day | ${min_days}-${max_days} days`;
+								option.dataset.utxo = JSON.stringify(utxo);
+								option.dataset.datum = JSON.stringify(rawDatum);
+								rentalPicker.appendChild(option);
+							}
+						} catch (e) {
+							console.error('Error parsing datum:', e);
+						}
 					}
 				}
 			} catch (e) {
@@ -142,45 +162,77 @@
 			}
 		}
 
-		// Connect wallet
+		// Generate CLI command for rent transaction
+		function generateCLICommand(escrowUtxo, datum, days, renterAddress, renterPkh) {
+			const fee = Number(datum[1]) * days;
+			const lenderPkh = datum[0];
+			const nftUnit = Object.keys(escrowUtxo.assets).find(a => a !== 'lovelace');
+			
+			// Calculate slots
+			const currentSlot = lucid.utils.unixTimeToSlot(Date.now());
+			const validFrom = currentSlot;
+			const validTo = currentSlot + 600;
+			
+			// Generate datum and redeemer files content
+			const datumJson = {
+				constructor: 0,
+				fields: [
+					{ bytes: datum[0] },
+					{ int: Number(datum[1]) },
+					{ int: Number(datum[2]) },
+					{ int: Number(datum[3]) },
+					{ constructor: datum[4].index, fields: [] },
+					{ constructor: 0, fields: [{ bytes: renterPkh }] },
+					{ constructor: 0, fields: [{ int: Date.now() + days * 86400000 }] },
+					{ bytes: datum[7] },
+					{ bytes: datum[8] }
+				]
+			};
+			
+			const redeemerJson = {
+				constructor: 0,
+				fields: [{ int: days }]
+			};
+			
+			const command = `# Save these files first:
+# datum.json: ${JSON.stringify(datumJson, null, 2)}
+# redeemer.json: ${JSON.stringify(redeemerJson, null, 2)}
+# script.plutus: <save the script CBOR>
+
+cardano-cli transaction build \\
+  --testnet-magic 2 \\
+  --tx-in ${escrowUtxo.txHash}#${escrowUtxo.outputIndex} \\
+  --tx-in-script-file script.plutus \\
+  --tx-in-inline-datum-present \\
+  --tx-in-redeemer-file redeemer.json \\
+  --tx-out "${lenderPkh}+${fee}" \\
+  --tx-out "${scriptAddress}+2000000+${nftUnit}" \\
+  --tx-out-inline-datum-file datum.json \\
+  --required-signer-hash ${renterPkh} \\
+  --invalid-before ${validFrom} \\
+  --invalid-hereafter ${validTo} \\
+  --change-address ${renterAddress} \\
+  --out-file tx.raw
+
+# Then sign with: cardano-cli transaction sign...`;
+			
+			return command;
+		}
+
 		document.getElementById('connectWallet').addEventListener('click', async () => {
-			try {
-				// Check for Eternl
-				if (!window.cardano || !window.cardano.eternl) {
-					throw new Error('Eternl wallet not found');
-				}
-
-				// Enable wallet
-				walletApi = await window.cardano.eternl.enable();
-				
-				// Check network
-				const networkId = await walletApi.getNetworkId();
-				if (networkId !== 0) {
-					document.getElementById('walletStatus').textContent = 'Please switch to Preprod network!';
-					return;
-				}
-
-				// Get change address
-				const addressHex = await walletApi.getChangeAddress();
-				walletAddress = Cardano.Address.fromHex(addressHex);
-				
-				// Initialize transaction builder
-				const protocolParameters = await networkInfoProvider.protocolParameters();
-				txBuilder = new TxBuilder(protocolParameters);
-
+			await initLucid();
+			if (window.cardano && window.cardano.eternl) {
+				lucid.selectWallet(await window.cardano.eternl.enable());
 				document.getElementById('walletStatus').textContent = 'Wallet connected!';
 				document.getElementById('listButton').disabled = false;
 				document.getElementById('rentButton').disabled = false;
-
 				await populateNftPicker();
 				await populateRentalPicker();
-			} catch (error) {
-				console.error('Wallet connection error:', error);
-				document.getElementById('walletStatus').textContent = 'Failed to connect: ' + error.message;
+			} else {
+				document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
 			}
 		});
 
-		// List NFT
 		document.getElementById('listButton').addEventListener('click', async () => {
 			try {
 				console.log('=== LIST BUTTON CLICKED ===');
@@ -190,108 +242,81 @@
 				const auto_relist = document.getElementById('auto_relist').checked;
 				const selectedNft = document.getElementById('nft_picker').value;
 
-				if (!selectedNft) throw new Error('Please select an NFT');
-
-				const [nft_policy, nft_name] = selectedNft.split('|');
+				if (!selectedNft || daily_fee <= 0 || min_days <= 0 || max_days <= 0) {
+					throw new Error('Invalid listing inputs');
+				}
 				
-				// Get payment key hash from address
-				const paymentKeyHash = walletAddress.getPaymentCredential()?.hash;
-				if (!paymentKeyHash) throw new Error('Could not get payment key hash');
+				const [nft_policy, nft_name] = selectedNft.split('|');
+				const lenderAddress = await lucid.wallet.address();
+				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
-				// Build datum using PlutusData
-				const datum = PlutusData.fromCore({
-					constructor: 0n,
-					fields: [
-						PlutusData.fromCore(paymentKeyHash),
-						PlutusData.fromCore(BigInt(daily_fee)),
-						PlutusData.fromCore(BigInt(min_days)),
-						PlutusData.fromCore(BigInt(max_days)),
-						PlutusData.fromCore({ constructor: auto_relist ? 1n : 0n, fields: [] }),
-						PlutusData.fromCore({ constructor: 1n, fields: [] }), // None
-						PlutusData.fromCore({ constructor: 1n, fields: [] }), // None
-						PlutusData.fromCore(nft_policy),
-						PlutusData.fromCore(nft_name)
-					]
-				});
+				const datum = Data.to([
+					lenderPkh,
+					BigInt(daily_fee),
+					BigInt(min_days),
+					BigInt(max_days),
+					new Constr(auto_relist ? 1 : 0, []),
+					new Constr(1, []),
+					new Constr(1, []),
+					nft_policy,
+					nft_name
+				]);
 
-				// Build transaction
-				// Note: TxBuilder API may vary - check latest docs
-				const tx = txBuilder
-					.addOutput({
-						address: scriptAddress,
-						value: {
-							coins: 2000000n,
-							assets: new Map([[`${nft_policy}${nft_name}`, 1n]])
-						},
-						datum
-					})
-					.build();
+				const assets = {
+					[`${nft_policy}${nft_name}`]: 1n,
+					lovelace: 2000000n
+				};
 
-				// Sign and submit
-				const witnessSet = await walletApi.signTx(tx.toCbor(), true);
-				const signedTx = tx.withWitnessSet(witnessSet);
-				const txHash = await walletApi.submitTx(signedTx.toCbor());
+				const tx = await lucid.newTx()
+					.payToContract(scriptAddress, { inline: datum }, assets)
+					.complete();
+
+				const signedTx = await tx.sign().complete();
+				const txHash = await signedTx.submit();
 
 				document.getElementById('listStatus').textContent = `Listed! Tx: ${txHash}`;
-				setTimeout(populateRentalPicker, 3000);
+				await populateRentalPicker();
 			} catch (error) {
 				console.error('List error:', error);
 				document.getElementById('listStatus').textContent = `Error: ${error.message}`;
 			}
 		});
 
-		// Rent NFT
 		document.getElementById('rentButton').addEventListener('click', async () => {
 			console.log('=== RENT BUTTON CLICKED ===');
 			try {
 				const days = parseInt(document.getElementById('days').value);
 				const selectedRental = document.getElementById('rental_picker').value;
-				
-				if (!selectedRental || days <= 0) throw new Error('Invalid selection');
-
-				// Get selected UTXO
 				const selectedOption = document.querySelector(`#rental_picker option[value="${selectedRental}"]`);
-				const utxo = JSON.parse(selectedOption.dataset.utxo);
 				
-				// Build redeemer
-				const redeemer = PlutusData.fromCore({
-					constructor: 0n, // Rent variant
-					fields: [PlutusData.fromCore(BigInt(days))]
-				});
+				if (!selectedRental || days <= 0) {
+					throw new Error('Invalid rental selection');
+				}
 
-				// Get current slot for validity interval
-				const currentSlot = await networkInfoProvider.currentSlot();
+				const escrowUtxo = JSON.parse(selectedOption.dataset.utxo);
+				const datum = JSON.parse(selectedOption.dataset.datum);
 				
-				// Build transaction with validity interval
-				const tx = txBuilder
-					.setValidityInterval({
-						invalidBefore: currentSlot,
-						invalidHereafter: currentSlot + 600n
-					})
-					.addInput({
-						utxo,
-						script: {
-							type: 'PlutusV2',
-							cbor: scriptCBOR,
-							datum: utxo.datum,
-							redeemer
-						}
-					})
-					// Add outputs, change, etc.
-					.build();
-
-				// Sign and submit
-				const witnessSet = await walletApi.signTx(tx.toCbor(), true);
-				const signedTx = tx.withWitnessSet(witnessSet);
-				const txHash = await walletApi.submitTx(signedTx.toCbor());
-
-				document.getElementById('txStatus').textContent = `Rented! Tx: ${txHash}`;
-				setTimeout(populateRentalPicker, 3000);
+				const renterAddress = await lucid.wallet.address();
+				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
+				
+				// Generate CLI command instead of trying to build with Lucid
+				const cliCommand = generateCLICommand(escrowUtxo, datum, days, renterAddress, renterPkh);
+				document.getElementById('cliCommand').textContent = cliCommand;
+				
+				document.getElementById('txStatus').textContent = 
+					'Due to Plutus V3 validity interval requirements, please use the CLI command below to build this transaction.';
 			} catch (error) {
 				console.error('=== RENT ERROR ===');
 				console.error('Full error:', error);
 				document.getElementById('txStatus').textContent = `Error: ${error.message}`;
 			}
+		});
+
+		document.getElementById('copyCommand').addEventListener('click', () => {
+			const command = document.getElementById('cliCommand').textContent;
+			navigator.clipboard.writeText(command).then(() => {
+				alert('Command copied to clipboard!');
+			});
 		});
 	</script>
 </body>
