@@ -408,27 +408,30 @@
 					// Start with a fresh transaction
 					tx = lucid.newTx();
 					
-					// Add the validity interval using the provider's current slot
-					const currentSlot = await lucid.provider.getSlot();
-					console.log('Current slot from provider:', currentSlot);
+					// Get current time and convert to slot
+					const now = Date.now();
+					const currentSlot = lucid.utils.unixTimeToSlot(now);
+					console.log('Current time:', now, 'Current slot:', currentSlot);
 					
-					tx = tx.validFrom(currentSlot);
-					tx = tx.validTo(currentSlot + 600);
+					// Try without parsing - just use the slot numbers directly
+					console.log('Setting validity interval...');
+					tx.validFrom(currentSlot);
+					tx.validTo(currentSlot + 600);
 					
 					console.log('Validity interval set');
 					
 					// Add the input with redeemer
-					tx = tx.collectFrom([escrowUtxo], redeemer);
+					tx.collectFrom([escrowUtxo], redeemer);
 					
 					// Attach the validator
-					tx = tx.attachSpendingValidator(validator);
+					tx.attachSpendingValidator(validator);
 					
 					// Add outputs
-					tx = tx.payToAddress(lenderAddress, { lovelace: fee });
-					tx = tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+					tx.payToAddress(lenderAddress, { lovelace: fee });
+					tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
 					
 					// Add signer
-					tx = tx.addSigner(renterAddress);
+					tx.addSigner(renterAddress);
 					
 					console.log('Building complete transaction...');
 					const completeTx = await tx.complete();
@@ -441,25 +444,16 @@
 					await populateRentalPicker();
 				} catch (txError) {
 					console.error('Transaction error:', txError);
-					console.error('Error name:', txError.name);
-					console.error('Error message:', txError.message);
+					console.error('Full error stack:', txError.stack);
 					
-					// Try without validity interval as a test
+					// Check if it's still ParseIntError
 					if (txError.message && txError.message.includes('ParseIntError')) {
-						console.log('Retrying without validity interval...');
-						try {
-							const tx2 = lucid.newTx()
-								.collectFrom([escrowUtxo], redeemer)
-								.attachSpendingValidator(validator)
-								.payToAddress(lenderAddress, { lovelace: fee })
-								.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn)
-								.addSigner(renterAddress);
-							
-							const completeTx2 = await tx2.complete();
-							console.log('Built without validity interval - this will fail at script execution');
-						} catch (e2) {
-							console.error('Second attempt error:', e2);
-						}
+						console.error('ParseIntError details:', {
+							redeemer: redeemer,
+							datum: updatedDatum,
+							currentSlot: lucid.utils.unixTimeToSlot(Date.now()),
+							scriptLength: validator.script.length
+						});
 					}
 					throw txError;
 				}
