@@ -120,7 +120,7 @@
 						}
 						const datum = rawDatum.list;
 						const renter_pkh = datum[5];
-						if (renter_pkh.constructor === 0) { // Only show available (not rented)
+						if (renter_pkh.constructor === 1) { // Only show available (not rented)
 							const name = hexToString(datum[8].bytes);
 							const option = document.createElement('option');
 							option.value = utxo.txHash + '#' + utxo.outputIndex;
@@ -171,8 +171,8 @@
 						BigInt(min_days),
 						BigInt(max_days),
 						{ constructor: auto_relist ? 1 : 0, fields: [] },
-						{ constructor: 0, fields: [] },
-						{ constructor: 0, fields: [] },
+						{ constructor: 1, fields: [] },
+						{ constructor: 1, fields: [] },
 						nft_policy,
 						nft_name
 					]
@@ -215,7 +215,7 @@
 				const datum = rawDatum.list;
 
 				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
-				if (datum[5].constructor !== 0) throw new Error('Already rented');
+				if (datum[5].constructor !== 1) throw new Error('Already rented');
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
@@ -238,8 +238,8 @@
 						datum[2],
 						datum[3],
 						datum[4],
-						{ constructor: 1, fields: [renterPkh] },
-						{ constructor: 1, fields: [BigInt(deadline)] },
+						{ constructor: 0, fields: [renterPkh] },
+						{ constructor: 0, fields: [BigInt(deadline)] },
 						datum[7],
 						datum[8]
 					]
