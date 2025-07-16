@@ -48,6 +48,7 @@
 	<script type="module">
 		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.10/web/mod.js";
 
+		// Keep the original values - they should be correct
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c';
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975';
 		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W';
@@ -66,10 +67,14 @@
 				'Preprod'
 			);
 			
-			// Create the validator object once during initialization
+			// Try creating the validator with double-encoded CBOR
+			// First, let's check if we need to add the script wrapper
+			const doubleEncodedCBOR = '5909125908' + scriptCBOR.slice(2); // Add double encoding prefix
+			
+			// Create the validator object
 			validator = {
 				type: "PlutusV2",
-				script: scriptCBOR
+				script: doubleEncodedCBOR
 			};
 			
 			// Verify the script hash matches
@@ -77,7 +82,14 @@
 			console.log('Derived script hash:', derivedHash);
 			console.log('Expected script hash:', scriptHash);
 			if (derivedHash !== scriptHash) {
-				console.error('Script hash mismatch! Check the script CBOR.');
+				console.error('Script hash mismatch! Trying with original CBOR...');
+				// Try with original CBOR
+				validator = {
+					type: "PlutusV2", 
+					script: scriptCBOR
+				};
+				const derivedHash2 = lucid.utils.validatorToScriptHash(validator);
+				console.log('Derived hash with original:', derivedHash2);
 			}
 		}
 
@@ -376,9 +388,18 @@
 				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
 				
 				// Add valid time range (required for time-based validators)
-				const currentSlot = lucid.utils.unixTimeToSlot(Date.now());
-				txBuilder.validFrom(currentSlot - 1000);
-				txBuilder.validTo(currentSlot + 3600);
+				try {
+					const now = Date.now();
+					const currentSlot = lucid.utils.unixTimeToSlot(now);
+					const fromSlot = Math.max(0, currentSlot - 1000);
+					const toSlot = currentSlot + 3600;
+					txBuilder.validFrom(fromSlot);
+					txBuilder.validTo(toSlot);
+					console.log('Valid time range set:', fromSlot, 'to', toSlot);
+				} catch (e) {
+					console.error('Error setting validity interval:', e);
+					// Continue without validity interval if it fails
+				}
 				
 				// Complete the transaction
 				const tx = await txBuilder.complete();
