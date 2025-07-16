@@ -411,41 +411,48 @@
 				// Build transaction
 				let tx;
 				try {
-					// Log all numeric values to debug ParseIntError
-					console.log('=== DEBUGGING NUMERIC VALUES ===');
-					console.log('Redeemer days:', days, typeof days);
-					console.log('Daily fee:', datum[1], typeof datum[1]);
-					console.log('Min days:', datum[2], typeof datum[2]);
-					console.log('Max days:', datum[3], typeof datum[3]);
-					console.log('Deadline:', deadline, typeof deadline);
-					console.log('Fee to lender:', fee, typeof fee);
-					console.log('Lovelace in escrow:', escrowUtxo.assets.lovelace, typeof escrowUtxo.assets.lovelace);
-					console.log('Lovelace to return:', assetsToReturn.lovelace, typeof assetsToReturn.lovelace);
+					console.log('Building transaction with validity interval workaround...');
 					
-					// Start transaction without validity interval to isolate the issue
-					tx = lucid.newTx();
+					// Get current slot
+					const now = Date.now();
+					const currentSlot = lucid.utils.unixTimeToSlot(now);
+					console.log('Current slot:', currentSlot);
 					
-					// Add components one by one to find where ParseIntError occurs
-					console.log('Step 1: Adding script input...');
-					tx.collectFrom([escrowUtxo], redeemer);
+					// Build transaction without validity interval first
+					tx = lucid.newTx()
+						.collectFrom([escrowUtxo], redeemer)
+						.attachSpendingValidator(validator)
+						.payToAddress(lenderAddress, { lovelace: fee })
+						.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn)
+						.addSigner(renterAddress);
 					
-					console.log('Step 2: Attaching validator...');
-					tx.attachSpendingValidator(validator);
+					// Try to add validity interval using a different method
+					console.log('Attempting to set validity interval...');
 					
-					console.log('Step 3: Adding payment to lender...');
-					tx.payToAddress(lenderAddress, { lovelace: fee });
+					// Method 1: Try with BigInt
+					try {
+						tx.validFrom(BigInt(currentSlot));
+						tx.validTo(BigInt(currentSlot + 600));
+						console.log('Set validity with BigInt');
+					} catch (e1) {
+						console.log('BigInt failed:', e1.message);
+						
+						// Method 2: Try with very small numbers to test
+						try {
+							tx.validFrom(1);
+							tx.validTo(1000);
+							console.log('Set validity with small numbers');
+						} catch (e2) {
+							console.log('Small numbers failed:', e2.message);
+							
+							// Method 3: Try without any validity interval
+							console.log('Proceeding without validity interval - will fail at script');
+						}
+					}
 					
-					console.log('Step 4: Adding output to contract...');
-					tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-					
-					console.log('Step 5: Adding signer...');
-					tx.addSigner(renterAddress);
-					
-					console.log('Step 6: Completing transaction (no validity interval)...');
+					console.log('Completing transaction...');
 					const completeTx = await tx.complete();
-					
-					console.log('Transaction completed without validity interval!');
-					console.log('The script will fail because it needs validity bounds, but at least we know ParseIntError is from validity interval');
+					console.log('Transaction completed!');
 					
 					const signedTx = await completeTx.sign().complete();
 					const txHashResult = await signedTx.submit();
@@ -453,13 +460,41 @@
 					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
 					await populateRentalPicker();
 				} catch (txError) {
-					console.error('Transaction error at step:', txError);
-					console.error('Error type:', txError.constructor.name);
-					console.error('Error message:', txError.message);
+					console.error('Transaction error:', txError);
 					
-					// If we get past building but fail at submission, it's the script failing
-					if (txError.message && txError.message.includes('Cannot evaluate')) {
-						console.log('Transaction built successfully but script evaluation failed (expected without validity interval)');
+					// Since we know the issue is with validity interval, let's try a completely different approach
+					if (txError.message && (txError.message.includes('ParseIntError') || txError.message.includes('Cannot evaluate'))) {
+						console.log('Trying alternative transaction building...');
+						
+						try {
+							// Build a minimal transaction to test
+							const tx2 = lucid.newTx();
+							
+							// Add validity interval before anything else
+							const slot = Math.floor(Date.now() / 1000) - 1596491091; // Convert to Cardano slot
+							console.log('Using calculated slot:', slot);
+							
+							// Use the slot number directly without any conversion
+							tx2.validFrom(slot);
+							tx2.validTo(slot + 600);
+							
+							// Add rest of transaction
+							tx2.collectFrom([escrowUtxo], redeemer);
+							tx2.attachSpendingValidator(validator);
+							tx2.payToAddress(lenderAddress, { lovelace: fee });
+							tx2.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
+							tx2.addSigner(renterAddress);
+							
+							const completeTx2 = await tx2.complete();
+							const signedTx2 = await completeTx2.sign().complete();
+							const txHashResult2 = await signedTx2.submit();
+
+							document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult2}`;
+							await populateRentalPicker();
+							return;
+						} catch (e2) {
+							console.error('Alternative approach also failed:', e2);
+						}
 					}
 					
 					throw txError;
