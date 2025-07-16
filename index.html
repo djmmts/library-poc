@@ -159,6 +159,18 @@
 				const utxos = await lucid.utxosAt(scriptAddress);
 				console.log(`Found ${utxos.length} UTxOs at script address`);
 				
+				// Check if any UTxO has a script reference
+				let foundScriptRef = false;
+				for (const utxo of utxos) {
+					if (utxo.scriptRef) {
+						console.log('Found UTxO with scriptRef:', utxo.txHash, utxo.scriptRef);
+						foundScriptRef = true;
+					}
+				}
+				if (!foundScriptRef) {
+					console.log('No UTxOs found with scriptRef');
+				}
+				
 				for (const utxo of utxos) {
 					if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
 						if (!utxo.datum) {
@@ -401,16 +413,44 @@
 				// Build transaction
 				const txBuilder = lucid.newTx();
 				
-				// Add the input with redeemer and attach the validator
+				// Add the input with redeemer WITHOUT attaching the validator
+				// Lucid might be able to resolve it from reference scripts
 				txBuilder.collectFrom([escrowUtxo], redeemer);
-				txBuilder.attachSpendingValidator(validator);
+				
+				// Try different approaches to attach the script
+				console.log('Trying to attach script...');
+				
+				// Approach 1: Try using readFrom with the escrow UTxO itself
+				// Some scripts store references to themselves
+				try {
+					if (escrowUtxo.scriptRef) {
+						console.log('Found scriptRef in escrowUtxo:', escrowUtxo.scriptRef);
+						txBuilder.readFrom([escrowUtxo]);
+					}
+				} catch (e) {
+					console.log('No scriptRef found in escrowUtxo');
+				}
+				
+				// Approach 2: Only attach validator if we have one that matches
+				if (validator && lucid.utils.validatorToScriptHash(validator) === scriptHash) {
+					console.log('Attaching matching validator');
+					txBuilder.attachSpendingValidator(validator);
+				} else {
+					console.log('Validator hash mismatch, not attaching');
+					// Try to find a reference UTxO that might contain the script
+					const allUtxos = await lucid.utxosAt(scriptAddress);
+					for (const utxo of allUtxos) {
+						if (utxo.scriptRef) {
+							console.log('Found reference script in UTxO:', utxo.txHash);
+							txBuilder.readFrom([utxo]);
+							break;
+						}
+					}
+				}
 				
 				// Add outputs
 				txBuilder.payToAddress(lenderAddress, { lovelace: fee });
 				txBuilder.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-				
-				// Skip validity interval for now to isolate the ParseIntError
-				console.log('Skipping validity interval to debug ParseIntError');
 				
 				// Complete the transaction
 				console.log('Completing transaction...');
