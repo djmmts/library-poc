@@ -245,7 +245,7 @@
 				], datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to(new Data.Constr(0, [Data.integer(BigInt(days))]));
+				const redeemer = Data.to(new Data.Constr(0, [Data.Integer(BigInt(days))]));
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
