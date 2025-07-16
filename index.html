@@ -377,6 +377,13 @@
 					console.error('Transaction building error:', txError);
 					throw txError;
 				}
+			} catch (error) {
+				console.error('=== RENT ERROR ===');
+				console.error('Full error:', error);
+				console.error('Error stack:', error.stack);
+				document.getElementById('txStatus').textContent = `Error: ${error.message}`;
+			}
+		});
 
 					const signedTx = await tx.sign().complete();
 					const txHashResult = await signedTx.submit();
