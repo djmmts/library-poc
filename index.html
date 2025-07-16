@@ -252,6 +252,16 @@
 
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
+				// Debug logging
+				console.log('Creating updated datum with:');
+				console.log('datum[0] (lender_pkh):', datum[0], typeof datum[0]);
+				console.log('datum[1] (daily_fee):', datum[1], typeof datum[1]);
+				console.log('datum[4] (auto_relist):', datum[4]);
+				console.log('renterPkh:', renterPkh, typeof renterPkh);
+				console.log('deadline:', deadline, typeof deadline);
+				console.log('datum[7] (nft_policy):', datum[7], typeof datum[7]);
+				console.log('datum[8] (nft_name):', datum[8], typeof datum[8]);
+
 				// Updated datum as array
 				const updatedDatum = Data.to([
 					datum[0], // lender_pkh (already a string)
