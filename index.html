@@ -127,14 +127,19 @@
 			const utxos = await lucid.utxosAt(scriptAddress);
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					const datum = Data.from(utxo.datum, datumSchema);
+					try {
+						const datum = Data.from(utxo.datum, datumSchema);
 
-					if (!datum[5]) { // Only show available (not rented)
-						const name = hexToString(datum[8]);
-						const option = document.createElement('option');
-						option.value = utxo.txHash + '#' + utxo.outputIndex;
-						option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
-						rentalPicker.appendChild(option);
+						if (!datum[5]) { // Only show available (not rented)
+							const name = hexToString(datum[8]);
+							const option = document.createElement('option');
+							option.value = utxo.txHash + '#' + utxo.outputIndex;
+							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
+							rentalPicker.appendChild(option);
+						}
+					} catch (e) {
+						console.log('Invalid datum for UTxO', utxo.txHash, e);
+						continue;
 					}
 				}
 			}
