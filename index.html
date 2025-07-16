@@ -356,8 +356,12 @@
 					// Add the input with redeemer
 					txBuilder.collectFrom([escrowUtxo], redeemer);
 					
-					// Attach the validator - try without type specification
-					txBuilder.attachSpendingValidator(scriptCBOR);
+					// Attach the validator - try PlutusV2 for compatibility
+					const validator = {
+						type: "PlutusV2",
+						script: scriptCBOR
+					};
+					txBuilder.attachSpendingValidator(validator);
 					
 					// Add outputs
 					txBuilder.payToAddress(lenderAddress, { lovelace: fee });
