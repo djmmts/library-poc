@@ -1,292 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>Cardano NFT Book Rental DApp</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Cardano NFT Book Rental DApp</title>
 </head>
 <body>
- <style>
- body { background-color: black; color: #aeaeae}
- </style>
- <h1>Rent a Book NFT on Cardano Preprod</h1>
- <p>Connect your Eternl wallet on Preprod network.</p>
- 
- <button id="connectWallet">Connect Eternl Wallet</button>
- <p id="walletStatus"></p>
+	<h1>Rent a Book NFT on Cardano Preprod</h1>
+	<p>Connect your Eternl wallet on Preprod network.</p>
+	
+	<button id="connectWallet">Connect Eternl Wallet</button>
+	<p id="walletStatus"></p>
 
- <h2>List Rental Offer</h2>
- <label for="daily_fee">Daily Fee (lovelace):</label>
- <input type="number" id="daily_fee" min="1000000" value="1000000">
- 
- <label for="min_days">Min Days:</label>
- <input type="number" id ="min_days" min="1" value="1">
- 
- <label for="max_days">Max Days:</label>
- <input type="number" id="max_days" min="1" value="30">
- 
- <label for="auto_relist">Auto Relist:</label>
- <input type="checkbox" id="auto_relist" checked>
- 
- <label for="nft_picker">Select NFT to List:</label>
- <select id="nft_picker">
- <option value="">--Select an NFT--</option>
- </select>
- 
- <button id="listButton" disabled>List Rental</button>
- <p id="listStatus"></p>
+	<h2>List Rental Offer</h2>
+	<label for="daily_fee">Daily Fee (lovelace):</label>
+	<input type="number" id="daily_fee" min="1000000" value="1000000">
+	
+	<label for="min_days">Min Days:</label>
+	<input type="number" id="min_days" min="1" value="1">
+	
+	<label for="max_days">Max Days:</label>
+	<input type="number" id="max_days" min="1" value="30">
+	
+	<label for="auto_relist">Auto Relist:</label>
+	<input type="checkbox" id="auto_relist" checked>
+	
+	<label for="nft_picker">Select NFT to List:</label>
+	<select id="nft_picker">
+		<option value="">--Select an NFT--</option>
+	</select>
+	
+	<button id="listButton" disabled>List Rental</button>
+	<p id="listStatus"></p>
 
- <h2>Rent Book</h2>
- <label for="rental_picker">Select Rental to Rent:</label>
- <select id="rental_picker">
- <option value="">--Select a Rental--</option>
- </select>
- 
- <label for="days">Days to Rent:</label>
- <input type="number" id="days" min="1" value="1">
- 
- <button id="rentButton" disabled>Rent Book</button>
- <p id="txStatus"></p>
+	<h2>Rent Book</h2>
+	<label for="rental_picker">Select Rental to Rent:</label>
+	<select id="rental_picker">
+		<option value="">--Select a Rental--</option>
+	</select>
+	
+	<label for="days">Days to Rent:</label>
+	<input type="number" id="days" min="1" value="1">
+	
+	<button id="rentButton" disabled>Rent Book</button>
+	<p id="txStatus"></p>
 
- <script type="module">
- import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.11/web/mod.js";
+	<script type="module">
+		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
- const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
- const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
- const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // IMPORTANT: Replace with your real Blockfrost project key for Preprod (e.g., 'preprodXXXXXXXXXXXXXXXXXXXXXXXX')
- const blockfrostUrl = 'https://cardano-preprod.blockfrost.io/api/v0';
- 
- let lucid;
+		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
+		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
+		const blockfrostKey = 'preprod5njBajXTux1u0d7vJCH9kOgsvPCDIe6W'; // Hardcoded for POC - replace with your actual key
+		
+		let lucid;
 
- const MaybeBytes = Data.Enum([
- Data.Object({ Some: Data.Bytes() }),
- Data.Literal("None")
- ]);
+		async function initLucid() {
+			lucid = await Lucid.new(
+				new Blockfrost('https://cardano-preprod.blockfrost.io/api/v0', blockfrostKey),
+				'Preprod'
+			);
+		}
 
- const MaybeInt = Data.Enum([
- Data.Object({ Some: Data.Integer() }),
- Data.Literal("None")
- ]);
+		// Function to hex-decode asset name to readable string if possible
+		function hexToString(hex) {
+			try {
+				let str = '';
+				for (let i = 0; i < hex.length; i += 2) {
+					str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+				}
+				return str;
+			} catch (e) {
+				return hex; // Fallback to hex if not decodable
+			}
+		}
 
- const datumSchema = Data.Tuple([
- Data.Bytes(),
- Data.Integer(),
- Data.Integer(),
- Data.Integer(),
- Data.Boolean(),
- MaybeBytes,
- MaybeInt,
- Data.Bytes(),
- Data.Bytes()
- ]);
+		// Populate NFT picker from wallet assets
+		async function populateNftPicker() {
+			const nftPicker = document.getElementById('nft_picker');
+			nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
+			
+			const utxos = await lucid.wallet.getUtxos();
+			const assets = {};
+			utxos.forEach(utxo => {
+				Object.entries(utxo.assets).forEach(([asset, qty]) => {
+					if (asset !== 'lovelace' && qty > 0n) {
+						if (!assets[asset]) assets[asset] = 0n;
+						assets[asset] += qty;
+					}
+				});
+			});
 
- async function initLucid() {
- lucid = await Lucid.new(
- new Blockfrost(blockfrostUrl, blockfrostKey),
- 'Preprod'
- );
- }
+			Object.keys(assets).forEach(asset => {
+				if (assets[asset] === 1n) { // Assume NFTs have quantity 1
+					const policy = asset.slice(0, 56);
+					const nameHex = asset.slice(56);
+					const name = hexToString(nameHex);
+					const option = document.createElement('option');
+					option.value = `${policy}|${nameHex}`;
+					option.textContent = `Policy: ${policy.slice(0,10)}... Name: ${name} (Qty: 1)`;
+					nftPicker.appendChild(option);
+				}
+			});
+		}
 
- // Function to hex-decode asset name to readable string if possible
- function hexToString(hex) {
- try {
- let str = '';
- for (let i = 0; i < hex.length; i += 2) {
- str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
- }
- return str;
- } catch (e) {
- return hex; // Fallback to hex if not decodable
- }
- }
+		// Populate rental picker from script UTxOs
+		async function populateRentalPicker() {
+			const rentalPicker = document.getElementById('rental_picker');
+			rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
+			
+			const utxos = await lucid.utxosAt(scriptAddress);
+			console.log(`Found ${utxos.length} UTxOs at script address`);
+			
+			for (const utxo of utxos) {
+				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
+					if (!utxo.datum) {
+						console.log('Skipping UTxO without inline datum');
+						continue;
+					}
+					try {
+						const rawDatum = Data.from(utxo.datum);
+						console.log('Raw datum structure:', rawDatum);
+						
+						// Check if it's an array/list structure
+						if (!Array.isArray(rawDatum)) {
+							console.log('Skipping non-array datum');
+							continue;
+						}
+						
+						const datum = rawDatum;
+						
+						// Validate datum has expected structure (9 elements)
+						if (datum.length !== 9) {
+							console.log(`Skipping datum with wrong length: ${datum.length}`);
+							continue;
+						}
+						
+						// Check if renter_pkh (index 5) indicates not rented
+						const renter_pkh = datum[5];
+						if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
+							const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
+							const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
+							const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
+							const max_days = datum[3] && typeof datum[3] === 'bigint' ? Number(datum[3]) : 0;
+							
+							const option = document.createElement('option');
+							option.value = utxo.txHash + '#' + utxo.outputIndex;
+							option.textContent = `NFT: ${nft_name} | Fee: ${daily_fee / 1000000} ADA/day | Min/Max: ${min_days}-${max_days} days`;
+							rentalPicker.appendChild(option);
+						} else {
+							console.log('Skipping rented NFT');
+						}
+					} catch (e) {
+						console.error('Error parsing datum:', e);
+						continue;
+					}
+				}
+			}
+		}
 
- // Populate NFT picker from wallet assets
- async function populateNftPicker() {
- const nftPicker = document.getElementById('nft_picker');
- nftPicker.innerHTML = '<option value="">--Select an NFT--</option>';
- 
- const utxos = await lucid.wallet.getUtxos();
- const assets = {};
- utxos.forEach(utxo => {
- Object.entries(utxo.assets).forEach(([asset, qty]) => {
- if (asset !== 'lovelace' && qty > 0n) {
- if (!assets[asset]) assets[asset] = 0n;
- assets[asset] += qty;
- }
- });
- });
+		document.getElementById('connectWallet').addEventListener('click', async () => {
+			await initLucid();
+			if (window.cardano && window.cardano.eternl) {
+				lucid.selectWallet(await window.cardano.eternl.enable());
+				document.getElementById('walletStatus').textContent = 'Wallet connected!';
+				document.getElementById('listButton').disabled = false;
+				document.getElementById('rentButton').disabled = false;
+				await populateNftPicker();
+				await populateRentalPicker();
+			} else {
+				document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
+			}
+		});
 
- Object.keys(assets).forEach(asset => {
- if (assets[asset] === 1n) { // Assume NFTs have quantity 1
- const policy = asset.slice(0, 56);
- const nameHex = asset.slice(56);
- const name = hexToString(nameHex);
- const option = document.createElement('option');
- option.value = `${policy}|${nameHex}`;
- option.textContent = `Policy: ${policy.slice(0,10)}... Name: ${name} (Qty: 1)`;
- nftPicker.appendChild(option);
- }
- });
- }
+		document.getElementById('listButton').addEventListener('click', async () => {
+			try {
+				const daily_fee = parseInt(document.getElementById('daily_fee').value);
+				const min_days = parseInt(document.getElementById('min_days').value);
+				const max_days = parseInt(document.getElementById('max_days').value);
+				const auto_relist = document.getElementById('auto_relist').checked;
+				const selectedNft = document.getElementById('nft_picker').value;
 
- // Populate rental picker from script UTxOs
- async function populateRentalPicker() {
- const rentalPicker = document.getElementById('rental_picker');
- rentalPicker.innerHTML = '<option value="">--Select a Rental--</option>';
- 
- const utxos = await lucid.utxosAt(scriptAddress);
- for (const utxo of utxos) {
- if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
- try {
- const datum = Data.from(utxo.datum, datumSchema);
+				if (!selectedNft || daily_fee <= 0 || min_days <= 0 || max_days <= 0 || min_days > max_days) throw new Error('Invalid listing inputs');
+				
+				const [nft_policy, nft_name] = selectedNft.split('|');
 
- const renter = datum[5];
- if (renter === "None") { // Only show available (not rented)
- const name = hexToString(datum[8]);
- const option = document.createElement('option');
- option.value = utxo.txHash + '#' + utxo.outputIndex;
- option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${Number(datum[2])}-${Number(datum[3])} days`;
- rentalPicker.appendChild(option);
- }
- } catch (e) {
- console.log('Invalid datum for UTxO', utxo.txHash, e);
- // Skip invalid datums
- }
- }
- }
- }
+				const lenderAddress = await lucid.wallet.address();
+				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
- document.getElementById('connectWallet').addEventListener('click', async () => {
- await initLucid();
- if (window.cardano && window.cardano.eternl) {
- lucid.selectWallet(await window.cardano.eternl.enable());
- document.getElementById('walletStatus').textContent = 'Wallet connected!';
- document.getElementById('listButton').disabled = false;
- document.getElementById('rentButton').disabled = false;
- await populateNftPicker();
- await populateRentalPicker();
- } else {
- document.getElementById('walletStatus').textContent = 'Eternl wallet not found.';
- }
- });
+				// Create datum as array directly
+				const datum = Data.to([
+					lenderPkh,
+					BigInt(daily_fee),
+					BigInt(min_days),
+					BigInt(max_days),
+					new Constr(auto_relist ? 1 : 0, []),
+					new Constr(1, []), // None for renter
+					new Constr(1, []), // None for deadline
+					nft_policy,
+					nft_name
+				]);
 
- document.getElementById('listButton').addEventListener('click', async () => {
- try {
- const daily_fee = parseInt(document.getElementById('daily_fee').value);
- const min_days = parseInt(document.getElementById('min_days').value);
- const max_days = parseInt(document.getElementById('max_days').value);
- const auto_relist = document.getElementById('auto_relist').checked;
- const selectedNft = document.getElementById('nft_picker').value;
+				const assets = {
+					[`${nft_policy}${nft_name}`]: 1n,
+					lovelace: 2000000n // ~2 ADA min, Lucid will add more if required
+				};
 
- if (!selectedNft || daily_fee <= 0 || min_days <= 0 || max_days <= 0 || min_days > max_days) throw new Error('Invalid listing inputs');
- 
- const [nft_policy, nft_name] = selectedNft.split('|');
+				const tx = await lucid.newTx()
+					.payToContract(scriptAddress, { inline: datum }, assets)
+					.complete();
 
- const lenderAddress = await lucid.wallet.address();
- const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
+				const signedTx = await tx.sign().complete();
+				const txHash = await signedTx.submit();
 
- const datum = Data.to([
- lenderPkh,
- BigInt(daily_fee),
- BigInt(min_days),
- BigInt(max_days),
- auto_relist,
- "None",
- "None",
- nft_policy,
- nft_name
- ], datumSchema);
+				document.getElementById('listStatus').textContent = `Rental listed! Tx: ${txHash}`;
+				await populateRentalPicker(); // Refresh rentals after listing
+			} catch (error) {
+				document.getElementById('listStatus').textContent = `Error: ${error.message}`;
+			}
+		});
 
- const assets = {
- [`${nft_policy}${nft_name}`]: 1n,
- lovelace: 2000000n // ~2 ADA min, Lucid will add more if required
- };
+		document.getElementById('rentButton').addEventListener('click', async () => {
+			try {
+				const days = parseInt(document.getElementById('days').value);
+				const selectedRental = document.getElementById('rental_picker').value;
+				if (!selectedRental || days <= 0) throw new Error('Invalid rental selection or days');
 
- const tx = await lucid.newTx()
- .payToContract(scriptAddress, { inline: datum }, assets)
- .complete();
+				const [txHash, outputIndex] = selectedRental.split('#');
+				const escrowUtxo = (await lucid.utxosAt(scriptAddress)).find(utxo => utxo.txHash === txHash && utxo.outputIndex === parseInt(outputIndex));
+				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
- const signedTx = await tx.sign().complete();
- const txHash = await signedTx.submit();
+				if (!escrowUtxo.datum) throw new Error('Escrow UTxO has no inline datum');
 
- document.getElementById('listStatus').textContent = `Rental listed! Tx: ${txHash}`;
- await populateRentalPicker(); // Refresh rentals after listing
- } catch (error) {
- document.getElementById('listStatus').textContent = `Error: ${error.message}`;
- }
- });
+				// Read datum from UTxO
+				const rawDatum = Data.from(escrowUtxo.datum);
+				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
+				const datum = rawDatum;
 
- document.getElementById('rentButton').addEventListener('click', async () => {
- try {
- const days = parseInt(document.getElementById('days').value);
- const selectedRental = document.getElementById('rental_picker').value;
- if (!selectedRental || days <= 0) throw new Error('Invalid rental selection or days');
+				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
+				if (datum[5].index !== 1) throw new Error('Already rented');
 
- const [txHash, outputIndex] = selectedRental.split('#');
- const escrowUtxo = (await lucid.utxosAt(scriptAddress)).find(utxo => utxo.txHash === txHash && utxo.outputIndex === parseInt(outputIndex));
- if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
+				// Get renter PKH
+				const renterAddress = await lucid.wallet.address();
+				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 
- // Read datum from UTxO
- const datum = Data.from(escrowUtxo.datum, datumSchema);
+				// Calculate deadline (current time + days * ms per day)
+				const latestBlockResponse = await fetch('https://cardano-preprod.blockfrost.io/api/v0/blocks/latest', {
+					headers: { 'project_id': blockfrostKey }
+				});
+				const latestBlock = await latestBlockResponse.json();
+				const currentTime = latestBlock.time * 1000;
 
- if (days < Number(datum[2]) || days > Number(datum[3])) throw new Error('Days out of range');
- if (datum[5] !== "None") throw new Error('Already rented');
+				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
- // Get renter PKH
- const renterAddress = await lucid.wallet.address();
- const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
+				// Updated datum - match the exact format used in listButton
+				const updatedDatum = Data.to([
+					datum[0], // lender_pkh - keep as is (string)
+					datum[1], // daily_fee - keep as is (bigint)
+					datum[2], // min_days - keep as is (bigint) 
+					datum[3], // max_days - keep as is (bigint)
+					new Constr(datum[4].index, []), // auto_relist
+					new Constr(0, [renterPkh]), // renter_pkh Some variant
+					new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant
+					datum[7], // nft_policy - keep as is (string)
+					datum[8]  // nft_name - keep as is (string)
+				]);
 
- // Calculate deadline
- const response = await fetch(`${blockfrostUrl}/blocks/latest`, {
- headers: { 'project_id': blockfrostKey }
- });
- if (!response.ok) throw new Error('Failed to fetch latest block');
- const latestBlock = await response.json();
- const blockSlot = latestBlock.slot;
- const blockTime = latestBlock.time;
- const now = Math.floor(Date.now() / 1000);
- const timeDiff = Math.max(0, now - blockTime); // Prevent negative diff if clock skew
- const currentSlot = blockSlot + timeDiff;
- const currentTime = lucid.utils.slotToUnixTime(currentSlot);
- const deadline = currentTime + (days * 86400000); // Use lower bound approximation
+				// Redeemer for Rent
+				const redeemer = Data.to({
+					constructor: 0,
+					fields: [ BigInt(days) ]
+				});
 
- // Updated datum
- const updatedDatum = Data.to([
- datum[0],
- datum[1],
- datum[2],
- datum[3],
- datum[4],
- { Some: renterPkh },
- { Some: BigInt(deadline) },
- datum[7],
- datum[8]
- ], datumSchema);
+				// Payment to lender  
+				const fee = datum[1] * BigInt(days);
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] }, lucid.network);
 
- // Redeemer for Rent
- const redeemer = Data.to(new Constr(0, [BigInt(days)]));
+				// Build tx
+				const tx = await lucid.newTx()
+					.collectFrom([escrowUtxo], redeemer)
+					.attachSpendingValidator({ type: 'PlutusV3', script: scriptHash })
+					.payToAddress(lenderAddress, { lovelace: fee })
+					.payToContract(scriptAddress, { inline: updatedDatum }, escrowUtxo.assets) // Preserve NFT + ADA
+					.complete();
 
- // Payment to lender
- const fee = datum[1] * BigInt(days);
- const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] });
+				const signedTx = await tx.sign().complete();
+				const txHashResult = await signedTx.submit();
 
- // Build tx
- const tx = await lucid.newTx()
- .collectFrom([escrowUtxo], redeemer)
- .attachSpendingValidator({ type: 'PlutusV3', script: scriptHash })
- .payToAddress(lenderAddress, { lovelace: fee })
- .payToContract(scriptAddress, { inline: updatedDatum }, escrowUtxo.assets) // Preserve NFT + ADA
- .complete();
-
- const signedTx = await tx.sign().complete();
- const txHashResult = await signedTx.submit();
-
- document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
- await populateRentalPicker(); // Refresh rentals after renting
- } catch (error) {
- document.getElementById('txStatus').textContent = `Error: ${error.message}`;
- }
- });
- </script>
+				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
+				await populateRentalPicker(); // Refresh rentals after renting
+			} catch (error) {
+				document.getElementById('txStatus').textContent = `Error: ${error.message}`;
+			}
+		});
+	</script>
 </body>
 </html>
