@@ -197,9 +197,9 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					{ constructor: auto_relist ? 1 : 0, fields: [] },
-					{ constructor: 1, fields: [] },
-					{ constructor: 1, fields: [] },
+					new Constr(auto_relist ? 1 : 0, []),
+					new Constr(1, []), // None variant for renter_pkh
+					new Constr(1, []), // None variant for deadline
 					nft_policy,
 					nft_name
 				]);
@@ -276,17 +276,20 @@
 
 				console.log('Creating updated datum...');
 				
-				// Updated datum - use the same format as listButton (which works)
+				// Updated datum - properly reconstruct the Constr objects
 				let updatedDatum;
 				try {
+					// Extract the auto_relist value from the original datum
+					const autoRelistValue = datum[4].index || 0;
+					
 					updatedDatum = Data.to([
 						datum[0], // lender_pkh - keep as is (string)
 						datum[1], // daily_fee - keep as is (bigint)
 						datum[2], // min_days - keep as is (bigint) 
 						datum[3], // max_days - keep as is (bigint)
-						{ constructor: datum[4].index, fields: [] }, // auto_relist
-						{ constructor: 0, fields: [renterPkh] }, // renter_pkh Some variant
-						{ constructor: 0, fields: [BigInt(Math.floor(deadline))] }, // deadline Some variant
+						new Constr(autoRelistValue, []), // auto_relist - reconstruct as Constr
+						new Constr(0, [renterPkh]), // renter_pkh Some variant with renter's PKH
+						new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant with deadline
 						datum[7], // nft_policy - keep as is (string)
 						datum[8]  // nft_name - keep as is (string)
 					]);
@@ -311,10 +314,7 @@
 				console.log('Creating redeemer...');
 				let redeemer;
 				try {
-					redeemer = Data.to({
-						constructor: 0,
-						fields: [ BigInt(days) ]
-					});
+					redeemer = Data.to(new Constr(0, [BigInt(days)]));
 					console.log('Redeemer created successfully');
 				} catch (e) {
 					console.error('Error creating redeemer:', e);
