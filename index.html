@@ -307,36 +307,39 @@
 
 				console.log('Building transaction...');
 				
-				// Build transaction with explicit validity interval workaround
-				const tx = lucid.newTx();
+				// Try building without validity interval first to isolate the issue
+				console.log('Attempting to build transaction without validity interval...');
+				let tx = lucid.newTx()
+					.collectFrom([escrowUtxo], redeemer)
+					.attachSpendingValidator(validator)
+					.payToAddress(lenderAddress, { lovelace: fee })
+					.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn)
+					.addSigner(renterAddress);
 				
-				// Try to build without validity interval first
-				tx.collectFrom([escrowUtxo], redeemer);
-				tx.attachSpendingValidator(validator);
-				tx.payToAddress(lenderAddress, { lovelace: fee });
-				tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-				tx.addSigner(renterAddress);
-				
-				// Try different approaches for validity interval
 				try {
-					// Approach 1: Use very specific slot calculation
-					const slot = Math.floor((Date.now() - 1596491091000) / 1000);
-					tx.validFrom(slot - 100);
-					tx.validTo(slot + 500);
-					console.log('Set validity interval with calculated slots');
-				} catch (e) {
-					console.warn('Could not set validity interval:', e);
-					// Continue without it - script will fail but we can see the error
+					const completedTx = await tx.complete();
+					console.log('Transaction built WITHOUT validity interval!');
+					console.log('Submitting to see script error...');
+					
+					const signedTx = await completedTx.sign().complete();
+					const txHashResult = await signedTx.submit();
+					
+					// If we get here, it worked without validity interval!
+					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
+					await populateRentalPicker();
+				} catch (error) {
+					console.log('Error without validity interval:', error.toString());
+					
+					// If the error is about script evaluation (not ParseIntError), 
+					// then we know the issue is specifically with validity interval
+					if (error.toString().includes('Cannot evaluate') || error.toString().includes('script')) {
+						console.log('Script requires validity interval, but Lucid has ParseIntError issue');
+						console.log('This is a known issue with some Lucid versions and Plutus V3 scripts');
+						throw new Error('Transaction requires validity interval but Lucid cannot set it properly. Consider using cardano-cli or another library.');
+					} else {
+						throw error;
+					}
 				}
-				
-				const completedTx = await tx.complete();
-				console.log('Transaction built successfully');
-				
-				const signedTx = await completedTx.sign().complete();
-				const txHashResult = await signedTx.submit();
-
-				document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
-				await populateRentalPicker();
 			} catch (error) {
 				console.error('=== RENT ERROR ===');
 				console.error('Full error:', error);
