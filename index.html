@@ -55,18 +55,25 @@
 		
 		let lucid;
 
+		const fieldsSchema = Data.Tuple([
+			Data.Bytes(),
+			Data.Integer(),
+			Data.Integer(),
+			Data.Integer(),
+			Data.Boolean(),
+			Data.Nullable(Data.Bytes()),
+			Data.Nullable(Data.Integer()),
+			Data.Bytes(),
+			Data.Bytes()
+		]);
+
 		const datumSchema = Data.Enum([
-			Data.Tuple([
-				Data.Bytes(),
-				Data.Integer(),
-				Data.Integer(),
-				Data.Integer(),
-				Data.Boolean(),
-				Data.Nullable(Data.Bytes()),
-				Data.Nullable(Data.Integer()),
-				Data.Bytes(),
-				Data.Bytes()
-			])
+			Data.Object({ Rental: fieldsSchema })
+		]);
+
+		const redeemerSchema = Data.Enum([
+			Data.Object({ Rent: Data.Tuple([Data.Integer()]) })
+			// Add other redeemers if needed, e.g., Data.Object({ Reclaim: Data.Literal() })
 		]);
 
 		async function initLucid() {
@@ -126,7 +133,8 @@
 			const utxos = await lucid.utxosAt(scriptAddress);
 			for (const utxo of utxos) {
 				if (Object.keys(utxo.assets).some(asset => asset !== 'lovelace')) {
-					const datum = Data.from(utxo.datum, datumSchema);
+					const datumObj = Data.from(utxo.datum, datumSchema);
+					const datum = datumObj.Rental;
 
 					if (!datum[5]) { // Only show available (not rented)
 						const name = hexToString(datum[8]);
@@ -168,17 +176,21 @@
 				const lenderAddress = await lucid.wallet.address();
 				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
-				const datum = Data.to([
-					lenderPkh,
-					BigInt(daily_fee),
-					BigInt(min_days),
-					BigInt(max_days),
-					auto_relist,
-					null,
-					null,
-					nft_policy,
-					nft_name
-				], datumSchema);
+				const datumValue = {
+					Rental: [
+						lenderPkh,
+						BigInt(daily_fee),
+						BigInt(min_days),
+						BigInt(max_days),
+						auto_relist,
+						null,
+						null,
+						nft_policy,
+						nft_name
+					]
+				};
+
+				const datum = Data.to(datumValue, datumSchema);
 
 				const assets = {
 					[`${nft_policy}${nft_name}`]: 1n,
@@ -210,7 +222,8 @@
 				if (!escrowUtxo) throw new Error('Selected escrow UTxO not found');
 
 				// Read datum from UTxO
-				const datum = Data.from(escrowUtxo.datum, datumSchema);
+				const datumObj = Data.from(escrowUtxo.datum, datumSchema);
+				const datum = datumObj.Rental;
 
 				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
 				if (datum[5]) throw new Error('Already rented');
@@ -234,20 +247,24 @@
 				const deadline = currentTime + (days * 86400000); // Use lower bound approximation
 
 				// Updated datum
-				const updatedDatum = Data.to([
-					datum[0],
-					datum[1],
-					datum[2],
-					datum[3],
-					datum[4],
-					renterPkh,
-					BigInt(deadline),
-					datum[7],
-					datum[8]
-				], datumSchema);
+				const updatedDatumValue = {
+					Rental: [
+						datum[0],
+						datum[1],
+						datum[2],
+						datum[3],
+						datum[4],
+						renterPkh,
+						BigInt(deadline),
+						datum[7],
+						datum[8]
+					]
+				};
+				const updatedDatum = Data.to(updatedDatumValue, datumSchema);
 
 				// Redeemer for Rent
-				const redeemer = Data.to(new Constr(0, [BigInt(days)]));
+				const redeemerValue = { Rent: [BigInt(days)] };
+				const redeemer = Data.to(redeemerValue, redeemerSchema);
 
 				// Payment to lender
 				const fee = datum[1] * BigInt(days);
