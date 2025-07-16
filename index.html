@@ -114,6 +114,10 @@
 					if (!utxo.datum) continue; // Skip UTxOs without inline datum
 					try {
 						const rawDatum = Data.from(utxo.datum);
+						if (!rawDatum.fields) {
+							console.log('Skipping non-constructor datum');
+							continue;
+						}
 						const datum = rawDatum.fields;
 						const renter_pkh = datum[5];
 						if (renter_pkh.constructor === 0) { // Only show available (not rented)
@@ -208,6 +212,7 @@
 
 				// Read datum from UTxO
 				const rawDatum = Data.from(escrowUtxo.datum);
+				if (!rawDatum.fields) throw new Error('Invalid datum format: not a constructor');
 				const datum = rawDatum.fields;
 
 				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
