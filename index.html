@@ -261,6 +261,48 @@
 				console.log('deadline:', deadline, typeof deadline);
 				console.log('datum[7] (nft_policy):', datum[7], typeof datum[7]);
 				console.log('datum[8] (nft_name):', datum[8], typeof datum[8]);
+				console.log('Constr available?', typeof Constr);
+
+				// Try using lucid's fromHex utility for hex strings
+				const { C, toHex, fromHex } = lucid.utils;
+
+				try {
+					// Updated datum as array
+					const updatedDatum = Data.to([
+						fromHex(datum[0]), // lender_pkh converted from hex
+						datum[1], // daily_fee (already a bigint)
+						datum[2], // min_days (already a bigint)
+						datum[3], // max_days (already a bigint)
+						new Constr(datum[4].index, []), // auto_relist
+						new Constr(0, [fromHex(renterPkh)]), // renter_pkh (Some with renter's PKH)
+						new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline (Some with deadline)
+						fromHex(datum[7]), // nft_policy converted from hex
+						fromHex(datum[8])  // nft_name converted from hex
+					]);
+					console.log('Datum created successfully');
+				} catch (e) {
+					console.error('Error creating datum:', e);
+					
+					// Try without fromHex conversions
+					try {
+						const updatedDatum2 = Data.to({
+							list: [
+								datum[0], // lender_pkh
+								datum[1], // daily_fee
+								datum[2], // min_days
+								datum[3], // max_days
+								new Constr(datum[4].index, []), // auto_relist
+								new Constr(0, [renterPkh]), // renter_pkh
+								new Constr(0, [BigInt(Math.floor(deadline))]), // rental_deadline
+								datum[7], // nft_policy
+								datum[8]  // nft_name
+							]
+						});
+						console.log('Datum created with list wrapper');
+					} catch (e2) {
+						console.error('Error with list wrapper:', e2);
+					}
+				}
 
 				// Updated datum as array
 				const updatedDatum = Data.to([
