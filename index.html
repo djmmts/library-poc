@@ -46,7 +46,7 @@
 	<p id="txStatus"></p>
 
 	<script type="module">
-		import { Blockfrost, Lucid, Data, Constr } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
+		import { Blockfrost, Lucid, Data } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js";
 
 		const scriptAddress = 'addr_test1wzvnyvs6at8sk56yvca400cjchzeeh3h5ednq5grczv2jag04uv5c'; // Replace with aiken blueprint address renting_escrow.nft_rental output
 		const scriptHash = '9932321aeacf0b5344663b57bf12c5c59cde37a65b305103c098a975'; // From plutus.json
@@ -137,7 +137,7 @@
 						
 						// Check if renter_pkh (index 5) indicates not rented
 						const renter_pkh = datum[5];
-						if (renter_pkh && renter_pkh.index === 1) { // Only show available (not rented)
+						if (renter_pkh && renter_pkh.constructor === 1) { // Only show available (not rented)
 							const nft_name = datum[8] && typeof datum[8] === 'string' ? hexToString(datum[8]) : 'Unknown';
 							const daily_fee = datum[1] && typeof datum[1] === 'bigint' ? Number(datum[1]) : 0;
 							const min_days = datum[2] && typeof datum[2] === 'bigint' ? Number(datum[2]) : 0;
@@ -193,9 +193,9 @@
 					BigInt(daily_fee),
 					BigInt(min_days),
 					BigInt(max_days),
-					new Constr(auto_relist ? 1 : 0, []),
-					new Constr(1, []), // None for renter
-					new Constr(1, []), // None for deadline
+					{ constructor: auto_relist ? 0 : 1, fields: [] },
+					{ constructor: 1, fields: [] }, // None for renter
+					{ constructor: 1, fields: [] }, // None for deadline
 					nft_policy,
 					nft_name
 				]);
@@ -236,8 +236,8 @@
 				if (!Array.isArray(rawDatum)) throw new Error('Invalid datum format: not an array');
 				const datum = rawDatum;
 
-				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
-				if (datum[5].index !== 1) throw new Error('Already rented');
+				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
+				if (datum[5].constructor !== 1) throw new Error('Already rented');
 
 				// Get renter PKH
 				const renterAddress = await lucid.wallet.address();
@@ -258,9 +258,9 @@
 					datum[1], // daily_fee - keep as is (bigint)
 					datum[2], // min_days - keep as is (bigint) 
 					datum[3], // max_days - keep as is (bigint)
-					new Constr(datum[4].index, []), // auto_relist
-					new Constr(0, [renterPkh]), // renter_pkh Some variant
-					new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant
+					{ constructor: datum[4].constructor, fields: [] }, // auto_relist
+					{ constructor: 0, fields: [renterPkh] }, // renter_pkh Some variant
+					{ constructor: 0, fields: [BigInt(deadline)] }, // deadline Some variant
 					datum[7], // nft_policy - keep as is (string)
 					datum[8]  // nft_name - keep as is (string)
 				]);
@@ -273,7 +273,7 @@
 
 				// Payment to lender  
 				const fee = datum[1] * BigInt(days);
-				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] }, lucid.network);
+				const lenderAddress = lucid.utils.credentialToAddress(lucid.network, { type: 'Key', hash: datum[0] });
 
 				// Build tx
 				const tx = await lucid.newTx()
