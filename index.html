@@ -199,7 +199,7 @@
 
 		document.getElementById('rentButton').addEventListener('click', async () => {
 			try {
-				const days = parseInt(document.getElementById'('days').value);
+				const days = parseInt(document.getElementById('days').value);
 				const selectedRental = document.getElementById('rental_picker').value;
 				if (!selectedRental || days <= 0) throw new Error('Invalid rental selection or days');
 
