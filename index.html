@@ -310,20 +310,26 @@
 					// Continue anyway for testing
 				}
 
-				// Calculate deadline using Cardano slot time
+				// Calculate deadline using POSIX seconds, then convert to milliseconds for the script
 				console.log('Calculating deadline...');
 				
-				// Get current slot and convert to milliseconds
-				const currentSlot = lucid.utils.unixTimeToSlot(Date.now());
-				const currentTimeMs = lucid.utils.slotToUnixTime(currentSlot);
+				// Get current POSIX time in seconds
+				const currentTimeSeconds = Math.floor(Date.now() / 1000);
+				const deadlineSeconds = currentTimeSeconds + (days * 86400); // 86400 seconds per day
 				
-				// Add days in milliseconds
-				const deadline = currentTimeMs + (days * 86400000); // 86400000 milliseconds per day
+				// Convert to milliseconds for the script
+				const currentTimeMs = currentTimeSeconds * 1000;
+				const deadline = deadlineSeconds * 1000;
 				
-				console.log('Current slot:', currentSlot);
+				console.log('Current time (seconds):', currentTimeSeconds);
+				console.log('Deadline (seconds):', deadlineSeconds);
 				console.log('Current time (ms):', currentTimeMs);
 				console.log('Deadline (ms):', deadline);
-				console.log('Deadline as BigInt:', BigInt(deadline));
+				
+				// Check if the number is too large
+				if (deadline > Number.MAX_SAFE_INTEGER) {
+					console.warn('Deadline exceeds MAX_SAFE_INTEGER!');
+				}
 
 				console.log('Creating updated datum...');
 				
@@ -405,41 +411,41 @@
 				// Build transaction
 				let tx;
 				try {
-					// Start with a fresh transaction
+					// Log all numeric values to debug ParseIntError
+					console.log('=== DEBUGGING NUMERIC VALUES ===');
+					console.log('Redeemer days:', days, typeof days);
+					console.log('Daily fee:', datum[1], typeof datum[1]);
+					console.log('Min days:', datum[2], typeof datum[2]);
+					console.log('Max days:', datum[3], typeof datum[3]);
+					console.log('Deadline:', deadline, typeof deadline);
+					console.log('Fee to lender:', fee, typeof fee);
+					console.log('Lovelace in escrow:', escrowUtxo.assets.lovelace, typeof escrowUtxo.assets.lovelace);
+					console.log('Lovelace to return:', assetsToReturn.lovelace, typeof assetsToReturn.lovelace);
+					
+					// Start transaction without validity interval to isolate the issue
 					tx = lucid.newTx();
 					
-					// Get current time and convert to slot
-					const now = Date.now();
-					const currentSlot = lucid.utils.unixTimeToSlot(now);
-					console.log('Current time:', now, 'Current slot:', currentSlot);
-					
-					// Try using string representation for slots
-					console.log('Setting validity interval with strings...');
-					const fromSlot = String(currentSlot);
-					const toSlot = String(currentSlot + 600);
-					console.log('From slot (string):', fromSlot, 'To slot (string):', toSlot);
-					
-					tx.validFrom(fromSlot);
-					tx.validTo(toSlot);
-					
-					console.log('Validity interval set');
-					
-					// Add the input with redeemer
+					// Add components one by one to find where ParseIntError occurs
+					console.log('Step 1: Adding script input...');
 					tx.collectFrom([escrowUtxo], redeemer);
 					
-					// Attach the validator
+					console.log('Step 2: Attaching validator...');
 					tx.attachSpendingValidator(validator);
 					
-					// Add outputs
+					console.log('Step 3: Adding payment to lender...');
 					tx.payToAddress(lenderAddress, { lovelace: fee });
+					
+					console.log('Step 4: Adding output to contract...');
 					tx.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
 					
-					// Add signer
+					console.log('Step 5: Adding signer...');
 					tx.addSigner(renterAddress);
 					
-					console.log('Building complete transaction...');
+					console.log('Step 6: Completing transaction (no validity interval)...');
 					const completeTx = await tx.complete();
-					console.log('Transaction built successfully');
+					
+					console.log('Transaction completed without validity interval!');
+					console.log('The script will fail because it needs validity bounds, but at least we know ParseIntError is from validity interval');
 					
 					const signedTx = await completeTx.sign().complete();
 					const txHashResult = await signedTx.submit();
@@ -447,39 +453,15 @@
 					document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult}`;
 					await populateRentalPicker();
 				} catch (txError) {
-					console.error('Transaction error:', txError);
-					console.error('Full error:', txError.toString());
+					console.error('Transaction error at step:', txError);
+					console.error('Error type:', txError.constructor.name);
+					console.error('Error message:', txError.message);
 					
-					// If still getting ParseIntError, try one more approach
-					if (txError.message && txError.message.includes('ParseIntError')) {
-						console.log('ParseIntError - trying with explicit integer conversion...');
-						try {
-							const tx2 = lucid.newTx();
-							
-							// Use parseInt to ensure proper integer
-							const slot = parseInt(lucid.utils.unixTimeToSlot(Date.now()));
-							tx2.validFrom(slot);
-							tx2.validTo(slot + 600);
-							
-							tx2.collectFrom([escrowUtxo], redeemer);
-							tx2.attachSpendingValidator(validator);
-							tx2.payToAddress(lenderAddress, { lovelace: fee });
-							tx2.payToContract(scriptAddress, { inline: updatedDatum }, assetsToReturn);
-							tx2.addSigner(renterAddress);
-							
-							const completeTx2 = await tx2.complete();
-							console.log('Second attempt succeeded!');
-							
-							const signedTx2 = await completeTx2.sign().complete();
-							const txHashResult2 = await signedTx2.submit();
-
-							document.getElementById('txStatus').textContent = `Rental successful! Tx: ${txHashResult2}`;
-							await populateRentalPicker();
-							return;
-						} catch (e2) {
-							console.error('Second attempt also failed:', e2);
-						}
+					// If we get past building but fail at submission, it's the script failing
+					if (txError.message && txError.message.includes('Cannot evaluate')) {
+						console.log('Transaction built successfully but script evaluation failed (expected without validity interval)');
 					}
+					
 					throw txError;
 				}
 				
