@@ -114,17 +114,17 @@
 					if (!utxo.datum) continue; // Skip UTxOs without inline datum
 					try {
 						const rawDatum = Data.from(utxo.datum);
-						if (!rawDatum.fields) {
-							console.log('Skipping non-constructor datum');
+						if (!rawDatum.list) {
+							console.log('Skipping non-list datum');
 							continue;
 						}
-						const datum = rawDatum.fields;
+						const datum = rawDatum.list;
 						const renter_pkh = datum[5];
 						if (renter_pkh.constructor === 0) { // Only show available (not rented)
-							const name = hexToString(datum[8]);
+							const name = hexToString(datum[8].bytes);
 							const option = document.createElement('option');
 							option.value = utxo.txHash + '#' + utxo.outputIndex;
-							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1]) / 1000000} ADA/day | Min/Max: ${datum[2]}-${datum[3]} days`;
+							option.textContent = `NFT: ${name} | Fee: ${Number(datum[1].int) / 1000000} ADA/day | Min/Max: ${datum[2].int}-${datum[3].int} days`;
 							rentalPicker.appendChild(option);
 						}
 					} catch (e) {
@@ -165,8 +165,7 @@
 				const lenderPkh = lucid.utils.getAddressDetails(lenderAddress).paymentCredential.hash;
 
 				const datum = Data.to({
-					constructor: 0,
-					fields: [
+					list: [
 						lenderPkh,
 						BigInt(daily_fee),
 						BigInt(min_days),
@@ -212,10 +211,10 @@
 
 				// Read datum from UTxO
 				const rawDatum = Data.from(escrowUtxo.datum);
-				if (!rawDatum.fields) throw new Error('Invalid datum format: not a constructor');
-				const datum = rawDatum.fields;
+				if (!rawDatum.list) throw new Error('Invalid datum format: not a list');
+				const datum = rawDatum.list;
 
-				if (days < datum[2] || days > datum[3]) throw new Error('Days out of range');
+				if (days < datum[2].int || days > datum[3].int) throw new Error('Days out of range');
 				if (datum[5].constructor !== 0) throw new Error('Already rented');
 
 				// Get renter PKH
@@ -233,8 +232,7 @@
 
 				// Updated datum
 				const updatedDatum = Data.to({
-					constructor: 0,
-					fields: [
+					list: [
 						datum[0],
 						datum[1],
 						datum[2],
@@ -254,8 +252,8 @@
 				});
 
 				// Payment to lender
-				const fee = datum[1] * BigInt(days);
-				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0] });
+				const fee = datum[1].int * BigInt(days);
+				const lenderAddress = lucid.utils.credentialToAddress({ type: 'Key', hash: datum[0].bytes });
 
 				// Build tx
 				const tx = await lucid.newTx()
