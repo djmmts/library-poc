@@ -67,29 +67,44 @@
 				'Preprod'
 			);
 			
-			// Try creating the validator with double-encoded CBOR
-			// First, let's check if we need to add the script wrapper
-			const doubleEncodedCBOR = '5909125908' + scriptCBOR.slice(2); // Add double encoding prefix
+			// The script address indicates the actual script hash should be 9932321...
+			// This means our CBOR is incorrect. Let's try to fetch the script from the blockchain
+			console.log('Fetching script from blockchain...');
 			
-			// Create the validator object
-			validator = {
-				type: "PlutusV2",
-				script: doubleEncodedCBOR
-			};
-			
-			// Verify the script hash matches
-			const derivedHash = lucid.utils.validatorToScriptHash(validator);
-			console.log('Derived script hash:', derivedHash);
-			console.log('Expected script hash:', scriptHash);
-			if (derivedHash !== scriptHash) {
-				console.error('Script hash mismatch! Trying with original CBOR...');
-				// Try with original CBOR
+			try {
+				const scriptResponse = await fetch(`https://cardano-preprod.blockfrost.io/api/v0/scripts/${scriptHash}`, {
+					headers: { 'project_id': blockfrostKey }
+				});
+				
+				if (scriptResponse.ok) {
+					const scriptData = await scriptResponse.json();
+					console.log('Script data from blockchain:', scriptData);
+					
+					if (scriptData.type === 'plutusV2') {
+						// Create validator from the fetched script
+						validator = {
+							type: "PlutusV2",
+							script: scriptData.cbor || scriptCBOR
+						};
+						
+						const derivedHash = lucid.utils.validatorToScriptHash(validator);
+						console.log('Derived hash from fetched script:', derivedHash);
+					}
+				} else {
+					console.log('Could not fetch script from blockchain, using provided CBOR');
+					// Fall back to the provided CBOR
+					validator = {
+						type: "PlutusV2",
+						script: scriptCBOR
+					};
+				}
+			} catch (e) {
+				console.error('Error fetching script:', e);
+				// Fall back to the provided CBOR
 				validator = {
-					type: "PlutusV2", 
+					type: "PlutusV2",
 					script: scriptCBOR
 				};
-				const derivedHash2 = lucid.utils.validatorToScriptHash(validator);
-				console.log('Derived hash with original:', derivedHash2);
 			}
 		}
 
@@ -296,15 +311,15 @@
 				const renterPkh = lucid.utils.getAddressDetails(renterAddress).paymentCredential.hash;
 				console.log('Renter PKH:', renterPkh);
 
-				// Calculate deadline (current time + days * ms per day)
+				// Calculate deadline (current time + days * seconds per day)
 				console.log('Fetching current time...');
 				const latestBlockResponse = await fetch('https://cardano-preprod.blockfrost.io/api/v0/blocks/latest', {
 					headers: { 'project_id': blockfrostKey }
 				});
 				const latestBlock = await latestBlockResponse.json();
-				const currentTime = latestBlock.time * 1000;
-				const deadline = currentTime + (days * 86400000);
-				console.log('Deadline calculated:', deadline);
+				const currentTime = latestBlock.time; // This is already in seconds
+				const deadline = currentTime + (days * 86400); // 86400 seconds per day
+				console.log('Deadline calculated (seconds):', deadline);
 
 				console.log('Creating updated datum...');
 				
@@ -321,7 +336,7 @@
 						datum[3], // max_days - keep as is (bigint)
 						new Constr(autoRelistValue, []), // auto_relist - reconstruct as Constr
 						new Constr(0, [renterPkh]), // renter_pkh Some variant with renter's PKH
-						new Constr(0, [BigInt(Math.floor(deadline))]), // deadline Some variant with deadline
+						new Constr(0, [BigInt(deadline)]), // deadline Some variant with deadline in seconds
 						datum[7], // nft_policy - keep as is (string)
 						datum[8]  // nft_name - keep as is (string)
 					]);
