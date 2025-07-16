@@ -55,16 +55,18 @@
 		
 		let lucid;
 
-		const datumSchema = Data.Tuple([
-			Data.Bytes(),
-			Data.Integer(),
-			Data.Integer(),
-			Data.Integer(),
-			Data.Boolean(),
-			Data.Nullable(Data.Bytes()),
-			Data.Nullable(Data.Integer()),
-			Data.Bytes(),
-			Data.Bytes()
+		const datumSchema = Data.Enum([
+			Data.Tuple([
+				Data.Bytes(),
+				Data.Integer(),
+				Data.Integer(),
+				Data.Integer(),
+				Data.Boolean(),
+				Data.Nullable(Data.Bytes()),
+				Data.Nullable(Data.Integer()),
+				Data.Bytes(),
+				Data.Bytes()
+			])
 		]);
 
 		async function initLucid() {
