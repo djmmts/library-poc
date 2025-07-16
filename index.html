@@ -351,21 +351,49 @@
 
 				// Try building the transaction step by step
 				try {
-					// First, let's verify our script hash
+					// First, let's verify our script hash with different Plutus versions
+					console.log('Testing script hash calculations...');
+					
+					// Try PlutusV1
+					try {
+						const v1Hash = lucid.utils.validatorToScriptHash({
+							type: "PlutusV1",
+							script: scriptCBOR
+						});
+						console.log('PlutusV1 hash:', v1Hash);
+					} catch (e) {
+						console.log('PlutusV1 failed:', e.message);
+					}
+					
+					// Try PlutusV2
+					try {
+						const v2Hash = lucid.utils.validatorToScriptHash({
+							type: "PlutusV2",
+							script: scriptCBOR
+						});
+						console.log('PlutusV2 hash:', v2Hash);
+					} catch (e) {
+						console.log('PlutusV2 failed:', e.message);
+					}
+					
+					// Try PlutusV3 if supported
+					try {
+						const v3Hash = lucid.utils.validatorToScriptHash({
+							type: "PlutusV3",
+							script: scriptCBOR
+						});
+						console.log('PlutusV3 hash:', v3Hash);
+					} catch (e) {
+						console.log('PlutusV3 failed:', e.message);
+					}
+					
+					console.log('Expected hash:', scriptHash);
+					
+					// Now let's try using PlutusV1 since one of them might match
 					const validator = {
-						type: "PlutusV2",
+						type: "PlutusV1",
 						script: scriptCBOR
 					};
-					
-					// Try to get the hash to see if it matches
-					try {
-						const calculatedHash = lucid.utils.validatorToScriptHash(validator);
-						console.log('Calculated script hash from CBOR:', calculatedHash);
-						console.log('Expected script hash:', scriptHash);
-						console.log('Hashes match:', calculatedHash === scriptHash);
-					} catch (hashError) {
-						console.log('Could not calculate script hash:', hashError.message);
-					}
 					
 					const txBuilder = lucid.newTx();
 					
